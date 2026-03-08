@@ -7,19 +7,21 @@ const TaskModal = ({ isOpen, onClose, task, onSave }) => {
     const defaultState = {
         name: '', type: 'עזרה כללית', description: '', address: '', city: '',
         urgency: 'medium', volunteers_needed: 1, status: 'open',
-        requester_name: '', requester_phone: '', time_type: 'none', due_date: '', notes: ''
+        requester_name: '', requester_phone: '', time_type: 'none', start_date: '', end_date: '', due_date: '', notes: ''
     };
     const [formData, setFormData] = useState(defaultState);
 
     useEffect(() => {
         if (task) {
-            // Format due_date for input[type="datetime-local"]
-            let formattedDate = '';
-            if (task.due_date) {
-                const date = new Date(task.due_date);
-                formattedDate = date.toISOString().slice(0, 16);
-            }
-            setFormData({ ...defaultState, ...task, due_date: formattedDate });
+            // Helper to format ISO to datetime-local compatible string
+            const fmt = (d) => d ? new Date(d).toISOString().slice(0, 16) : '';
+            setFormData({
+                ...defaultState,
+                ...task,
+                start_date: fmt(task.start_date || task.due_date),
+                end_date: fmt(task.end_date),
+                due_date: fmt(task.due_date)
+            });
         }
         else setFormData(defaultState);
     }, [task, isOpen]);
@@ -116,8 +118,8 @@ const TaskModal = ({ isOpen, onClose, task, onSave }) => {
                                 <div className="flex flex-wrap gap-3">
                                     {[
                                         { id: 'none', label: 'ללא זמן מוגדר' },
-                                        { id: 'specific', label: 'במועד ספציפי' },
-                                        { id: 'until', label: 'עד לתאריך מסוים' }
+                                        { id: 'range', label: 'טווח תאריכים' },
+                                        { id: 'until', label: 'עד לתאריך סוים' }
                                     ].map(opt => (
                                         <label key={opt.id} className={`flex-1 min-w-[120px] flex items-center justify-center p-3 rounded-xl border-2 cursor-pointer transition-all ${formData.time_type === opt.id ? 'bg-white border-primary text-primary shadow-sm' : 'bg-transparent border-gray-200 text-gray-400 hover:border-gray-300'}`}>
                                             <input type="radio" className="hidden" name="time_type" value={opt.id} checked={formData.time_type === opt.id} onChange={e => setFormData({ ...formData, time_type: e.target.value })} />
@@ -126,9 +128,28 @@ const TaskModal = ({ isOpen, onClose, task, onSave }) => {
                                     ))}
                                 </div>
 
-                                {formData.time_type !== 'none' && (
+                                {formData.time_type === 'range' && (
+                                    <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 duration-300">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-gray-400 mb-1.5 mr-1">מתאריך</label>
+                                            <div className="relative">
+                                                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
+                                                <input type="datetime-local" value={formData.start_date} onChange={e => setFormData({ ...formData, start_date: e.target.value })} className="w-full pr-10 pl-4 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-gray-400 mb-1.5 mr-1">עד תאריך</label>
+                                            <div className="relative">
+                                                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
+                                                <input type="datetime-local" value={formData.end_date} onChange={e => setFormData({ ...formData, end_date: e.target.value })} className="w-full pr-10 pl-4 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {formData.time_type === 'until' && (
                                     <div className="animate-in slide-in-from-top-2 duration-300">
-                                        <label className="block text-xs font-bold text-gray-500 mb-1.5 mr-1">בחר תאריך ושעה</label>
+                                        <label className="block text-[10px] font-black text-gray-400 mb-1.5 mr-1">עד תאריך/שעה</label>
                                         <div className="relative">
                                             <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300" size={16} />
                                             <input type="datetime-local" value={formData.due_date} onChange={e => setFormData({ ...formData, due_date: e.target.value })} className="w-full pr-10 pl-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" />

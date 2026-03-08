@@ -119,13 +119,16 @@ const Tasks = () => {
 
     const filtered = useMemo(() => {
         return (tasks || []).filter(t => {
-            if (t.is_archived !== showArchived) return false;
-            if (targetedId && t.id === targetedId) return true;
-            if (targetedId) return false;
+            // Fix: Check boolean value explicitly to handle null as false
+            if (!!t.is_archived !== !!showArchived) return false;
+
+            // If we have a targeted search or filters, apply them
             if (search && !t.name?.toLowerCase().includes(search.toLowerCase())) return false;
             if (filterUrgency && t.urgency !== filterUrgency) return false;
             if (filterStatus && t.status !== filterStatus) return false;
             if (filterCity && t.city !== filterCity) return false;
+
+            // Note: removed targetedId isolation so other tasks stay visible
             return true;
         });
     }, [tasks, search, filterUrgency, filterStatus, filterCity, targetedId, showArchived]);
@@ -180,7 +183,7 @@ const Tasks = () => {
                 lat = loc.lat; lng = loc.lng;
             } catch (e) { console.error(e); }
         }
-        const allowedFields = ['name', 'type', 'description', 'address', 'city', 'lat', 'lng', 'urgency', 'volunteers_needed', 'status', 'requester_name', 'requester_phone', 'time_type', 'due_date', 'notes'];
+        const allowedFields = ['name', 'type', 'description', 'address', 'city', 'lat', 'lng', 'urgency', 'volunteers_needed', 'status', 'requester_name', 'requester_phone', 'time_type', 'due_date', 'start_date', 'end_date', 'notes'];
         const clean = {};
         allowedFields.forEach(f => { if (data[f] !== undefined) clean[f] = data[f]; });
         clean.lat = lat; clean.lng = lng;
@@ -197,12 +200,19 @@ const Tasks = () => {
 
     const formatTimeInfo = (task) => {
         if (task.time_type === 'none') return task.notes ? `בלי זמן מוגדר (${task.notes})` : 'ללא זמן מוגדר';
-        const d = new Date(task.due_date);
+
+        const fmt = (iso) => iso ? new Date(iso).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) + ' ' + new Date(iso).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : '';
+
+        if (task.time_type === 'range') {
+            return `בין ${fmt(task.start_date)} ל-${fmt(task.end_date)}`;
+        }
+
+        const d = new Date(task.due_date || task.start_date);
         const dateStr = d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const timeStr = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-        if (task.time_type === 'specific') return `במועד: ${dateStr} בשעה ${timeStr}`;
+
         if (task.time_type === 'until') return `עד לתאריך: ${dateStr} ב-${timeStr}`;
-        return '-';
+        return `במועד: ${dateStr} בשעה ${timeStr}`;
     };
 
     return (

@@ -18,8 +18,10 @@ ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT fa
 ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS requester_name TEXT;
 ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS requester_phone TEXT;
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS time_type TEXT DEFAULT 'none'; -- none, specific, until
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS time_type TEXT DEFAULT 'none'; -- none, range, until
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE; -- keeping for backward compatibility
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS start_date TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS end_date TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS notes TEXT;
 
 -- 3. Create Assignments table if missing (for many-to-many linking)
