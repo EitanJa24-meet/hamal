@@ -13,6 +13,8 @@ CREATE TABLE public.volunteers (
     lat DOUBLE PRECISION,
     lng DOUBLE PRECISION,
     has_car BOOLEAN DEFAULT false,
+    gender TEXT,
+    school TEXT,
     skills TEXT[] DEFAULT '{}',
     availability_days TEXT[] DEFAULT '{}',
     availability_hours TEXT,

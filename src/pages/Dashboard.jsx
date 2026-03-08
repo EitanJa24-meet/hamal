@@ -55,7 +55,7 @@ const Dashboard = () => {
                     }
                 });
                 setCharts({
-                    byType: Object.keys(typeCounts).map(type => ({ name: type, value: typeCounts[type], color: '#2563eb' })),
+                    byType: Object.keys(typeCounts).map(type => ({ name: type, value: typeCounts[type], color: '#7e9ceb' })),
                     byCity: Object.keys(cityCounts).map(city => ({ city, count: cityCounts[city] }))
                 });
             }
@@ -69,10 +69,7 @@ const Dashboard = () => {
                     <h2 className="text-3xl font-bold tracking-tight text-gray-900">דאשבורד מרכז שליטה</h2>
                     <p className="text-gray-500 mt-1">סקירת מצב בזמן אמת</p>
                 </div>
-                <button className="bg-alert hover:bg-red-700 text-white px-6 py-2.5 rounded-xl flex items-center gap-2 font-semibold shadow-lg shadow-alert/20 transition-all hover:scale-105 active:scale-95">
-                    <AlertTriangle size={20} />
-                    אירוע חירום חדש
-                </button>
+                {/* Note: Sidebar already has the Global Emergency button */}
             </div>
 
             {/* Stat Cards */}
@@ -152,7 +149,7 @@ const Dashboard = () => {
                                     cursor={{ fill: 'transparent' }}
                                     contentStyle={{ borderRadius: '12px', borderColor: '#f3f4f6' }}
                                 />
-                                <Bar dataKey="count" fill="#2563eb" radius={[0, 4, 4, 0]} barSize={40} />
+                                <Bar dataKey="count" fill="#7e9ceb" radius={[0, 4, 4, 0]} barSize={40} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>

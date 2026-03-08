@@ -54,10 +54,26 @@ const VolunteerModal = ({ isOpen, onClose, volunteer, onSave }) => {
                                 <label className="block text-sm font-bold mb-1">עיר</label>
                                 <input required type="text" value={formData.city || ''} onChange={e => setFormData({ ...formData, city: e.target.value })} className="w-full border p-2 rounded-lg focus:ring-primary focus:border-primary outline-none transition-shadow" />
                             </div>
+                            <div>
+                                <label className="block text-sm font-bold mb-1">מגדר</label>
+                                <select value={formData.gender || ''} onChange={e => setFormData({ ...formData, gender: e.target.value })} className="w-full border p-2 rounded-lg bg-white outline-none">
+                                    <option value="">כלשהו / לא צוין</option>
+                                    <option value="זכר">זכר</option>
+                                    <option value="נקבה">נקבה</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold mb-1">בית ספר</label>
+                                <input type="text" value={formData.school || ''} onChange={e => setFormData({ ...formData, school: e.target.value })} className="w-full border p-2 rounded-lg focus:ring-primary outline-none" />
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-bold mb-1">כתובת</label>
                             <input type="text" value={formData.address || ''} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full border p-2 rounded-lg focus:ring-primary focus:border-primary outline-none transition-shadow" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold mb-1">הערות נוספות</label>
+                            <textarea rows="2" value={formData.notes || ''} onChange={e => setFormData({ ...formData, notes: e.target.value })} className="w-full border p-2 rounded-lg focus:ring-primary outline-none"></textarea>
                         </div>
                         <div>
                             <label className="block text-sm font-bold mb-1">סטטוס פעילות</label>

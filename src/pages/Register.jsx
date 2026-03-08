@@ -45,6 +45,8 @@ const Register = () => {
             city: formData.city,
             has_car: formData.has_car,
             skills: formData.skills,
+            gender: formData.gender,
+            school: formData.school,
             status: 'available',
             lat: loc.lat,
             lng: loc.lng
@@ -137,6 +139,29 @@ const Register = () => {
                                     value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })}
                                     className="block w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm focus:ring-primary focus:border-primary sm:text-sm transition-shadow"
                                 />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">בית ספר / סטטוס לימודים</label>
+                                <input
+                                    type="text"
+                                    value={formData.school || ''} onChange={e => setFormData({ ...formData, school: e.target.value })}
+                                    className="block w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm focus:ring-primary focus:border-primary sm:text-sm transition-shadow"
+                                    placeholder="אורט, מקיף, או 'סיימתי'"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">מגדר (עבור התאמה למשימות בייביסיטר)</label>
+                                <select
+                                    value={formData.gender || ''} onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                                    className="block w-full px-4 py-3 border border-gray-200 rounded-xl shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-white"
+                                >
+                                    <option value="">בחר מגדר</option>
+                                    <option value="זכר">זכר</option>
+                                    <option value="נקבה">נקבה</option>
+                                </select>
                             </div>
                         </div>
 

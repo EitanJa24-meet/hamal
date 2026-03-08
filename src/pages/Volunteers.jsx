@@ -70,15 +70,35 @@ const Volunteers = () => {
             const wsname = wb.SheetNames[0];
             const data = XLSX.utils.sheet_to_json(wb.Sheets[wsname]);
 
-            const mappedData = data.map(row => ({
-                full_name: row.full_name || row['שם מלא'] || row['שחקן'] || 'ללא שם',
-                phone: row.phone || row['טלפון'] || row['נייד'] || '',
-                city: row.city || row['עיר'] || 'תל אביב',
-                address: row.address || row['כתובת'] || '',
-                has_car: String(row.has_car || row['רכב']).toLowerCase() === 'true' || row['רכב'] === 'כן',
-                status: 'available',
-                skills: []
-            }));
+            const mappedData = data.map(row => {
+                // Get value by partial key match to handle weird colons and spaces
+                const getVal = (possibleKeys) => {
+                    for (const key of Object.keys(row)) {
+                        const cleanKey = key.replace(/[:\t\r\n]/g, '').trim();
+                        if (possibleKeys.some(pk => cleanKey.includes(pk))) return row[key];
+                    }
+                    return null;
+                };
+
+                const phoneStr = getVal(['טלפון נייד', 'טלפון', 'נייד']) || '';
+                const notesVal = getVal(['הערות', 'שאלות']) || '';
+                const parentPhone = getVal(['טלפון של הורה']);
+                const mergedNotes = parentPhone ? `טלפון הורה: ${parentPhone}. ${notesVal}` : notesVal;
+
+                return {
+                    full_name: getVal(['שם מלא', 'שם', 'שחקן']) || 'ללא שם',
+                    phone: phoneStr.toString().trim(),
+                    age: parseInt(getVal(['בן כמה אני', 'גיל'])) || null,
+                    city: getVal(['עיר מגורים', 'עיר', 'ישוב', 'יישוב']) || 'תל אביב',
+                    address: getVal(['כתובת']) || '',
+                    school: getVal(['בית ספר']),
+                    gender: getVal(['מגדר']),
+                    has_car: String(getVal(['רכב', 'has_car'])).toLowerCase() === 'true' || getVal(['רכב']) === 'כן',
+                    notes: mergedNotes,
+                    status: 'available',
+                    skills: []
+                };
+            });
 
             if (mappedData.length > 0) {
                 // Background geocode
@@ -151,6 +171,15 @@ const Volunteers = () => {
                                 <Car size={16} className="text-gray-400" />
                                 <span>{vol.has_car ? 'נייד עם רכב' : 'ללא רכב ממנוע'}</span>
                             </div>
+                            {(vol.school || vol.gender) && (
+                                <div className="flex items-center gap-2 text-primary/70 text-xs font-bold">
+                                    {vol.school && <span>• {vol.school}</span>}
+                                    {vol.gender && <span>• {vol.gender}</span>}
+                                </div>
+                            )}
+                            {vol.notes && (
+                                <p className="text-xs text-gray-400 italic line-clamp-1 mt-1">"{vol.notes}"</p>
+                            )}
                             {vol.skills && vol.skills.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-3 pt-2 border-t border-gray-100 line-clamp-2">
                                     {vol.skills.slice(0, 3).map(s => <span key={s} className="bg-gray-50 border border-gray-100 text-xs px-2 py-0.5 rounded-md text-gray-600">{s}</span>)}

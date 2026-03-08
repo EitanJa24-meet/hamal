@@ -19,8 +19,8 @@ const createCustomIcon = (color, IconComp) => {
 const userHtml = `<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>`;
 const clipboardHtml = `<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>`;
 
-const volIcon = createCustomIcon('#2563eb', userHtml);
-const taskIcon = createCustomIcon('#dc2626', clipboardHtml);
+const volIcon = createCustomIcon('#7e9ceb', userHtml);
+const taskIcon = createCustomIcon('#e88b8b', clipboardHtml);
 
 const MapView = () => {
     const [volunteers, setVolunteers] = useState([]);
