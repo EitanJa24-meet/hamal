@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Map, Users, ClipboardList, AlertTriangle, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Map, Users, ClipboardList, AlertTriangle, Shield } from 'lucide-react';
 import TaskModal from './TaskModal';
 import { supabase } from '../supabaseClient';
 import { geocodeAddress } from '../utils/geocode';
@@ -62,12 +62,6 @@ const Layout = () => {
                     </div>
                 </nav>
 
-                <div className="p-4 border-t border-gray-100">
-                    <button className="w-full flex items-center gap-3 px-4 py-3 text-gray-500 hover:text-gray-800 transition-colors">
-                        <LogOut size={20} />
-                        <span className="font-medium">התנתק</span>
-                    </button>
-                </div>
             </aside>
 
             {/* Main Content Area */}
