@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../supabaseClient';
-import { Filter, Car, Phone, MapPin } from 'lucide-react';
+import { Filter, Car, Phone, MapPin, Users, Hammer, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-// ─── FIX: Leaflet default icon broken by Vite's asset processing ─────────────
+// ─── FIX: Leaflet default icon broken by Vite ───────────────────────────────
 import markerIconPng from 'leaflet/dist/images/marker-icon.png';
 import markerIcon2xPng from 'leaflet/dist/images/marker-icon-2x.png';
 import markerShadowPng from 'leaflet/dist/images/marker-shadow.png';
@@ -15,29 +15,32 @@ L.Icon.Default.mergeOptions({
     iconRetinaUrl: markerIcon2xPng,
     shadowUrl: markerShadowPng,
 });
-// ─────────────────────────────────────────────────────────────────────────────
 
 // Custom colored circle icons
-const makeIcon = (color, label) => L.divIcon({
+const makeIcon = (color, label, shadowColor = 'rgba(0,0,0,0.2)') => L.divIcon({
     className: '',
     html: `<div style="
         background:${color};
-        border: 2.5px solid white;
-        border-radius: 50%;
-        width: 28px; height: 28px;
+        border: 2px solid white;
+        border-radius: 12px 12px 12px 0;
+        width: 32px; height: 32px;
         display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-        font-size: 14px;
-    ">${label}</div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -16],
+        box-shadow: 0 3px 8px ${shadowColor};
+        font-size: 16px;
+        transform: rotate(-45deg);
+    ">
+        <div style="transform: rotate(45deg);">${label}</div>
+    </div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32],
 });
 
-const volIcon = makeIcon('#7e9ceb', '👤');
+const volIcon = makeIcon('#3b82f6', '👤');
+const groupIcon = makeIcon('#f59e0b', '👥', 'rgba(245,158,11,0.3)');
 const taskIconFn = (urgency) => {
-    const colors = { emergency: '#e88b8b', high: '#f4a261', medium: '#f4d160', low: '#a8d8a8' };
-    return makeIcon(colors[urgency] || '#e88b8b', '📋');
+    const colors = { emergency: '#ef4444', high: '#f97316', medium: '#eab308', low: '#22c55e' };
+    return makeIcon(colors[urgency] || '#3b82f6', '📍');
 };
 
 // Fit map bounds to markers
@@ -49,7 +52,7 @@ const FitBounds = ({ volunteers, tasks }) => {
             ...tasks.filter(t => t.lat && t.lng).map(t => [t.lat, t.lng]),
         ];
         if (points.length > 0) {
-            map.fitBounds(points, { padding: [40, 40], maxZoom: 13 });
+            map.fitBounds(points, { padding: [50, 50], maxZoom: 14 });
         }
     }, [volunteers, tasks]);
     return null;
@@ -60,132 +63,202 @@ const MapView = () => {
     const [tasks, setTasks] = useState([]);
     const [showVols, setShowVols] = useState(true);
     const [showTasks, setShowTasks] = useState(true);
-    const [filterCity, setFilterCity] = useState('');
-    const [filterStatus, setFilterStatus] = useState('');
-    const [filterUrgency, setFilterUrgency] = useState('');
-    const [filterCar, setFilterCar] = useState(false);
+
+    // Vol Filters
+    const [volCity, setVolCity] = useState('');
+    const [volStatus, setVolStatus] = useState('');
+    const [volType, setVolType] = useState('');
+    const [volCar, setVolCar] = useState(false);
+
+    // Task Filters
+    const [taskCity, setTaskCity] = useState('');
+    const [taskStatus, setTaskStatus] = useState('');
+    const [taskUrgency, setTaskUrgency] = useState('');
 
     useEffect(() => {
         const load = async () => {
-            const { data: vData } = await supabase.from('volunteers').select('*').not('lat', 'is', null);
-            const { data: tData } = await supabase.from('tasks').select('*').not('lat', 'is', null);
+            const { data: vData } = await supabase.from('volunteers').select('*').not('lat', 'is', null).range(0, 2999);
+            const { data: tData } = await supabase.from('tasks').select('*').not('lat', 'is', null).range(0, 1999);
             if (vData) setVolunteers(vData);
             if (tData) setTasks(tData);
         };
         load();
     }, []);
 
-    const cities = [...new Set(volunteers.map(v => v.city).filter(Boolean))].sort();
+    const volCities = useMemo(() => [...new Set(volunteers.map(v => v.city).filter(Boolean))].sort(), [volunteers]);
+    const taskCities = useMemo(() => [...new Set(tasks.map(t => t.city).filter(Boolean))].sort(), [tasks]);
 
-    const filteredVols = volunteers.filter(v => {
-        if (filterCity && v.city !== filterCity) return false;
-        if (filterStatus && v.status !== filterStatus) return false;
-        if (filterCar && !v.has_car) return false;
+    // Apply jitter to markers that are on top of each other
+    // We do this by creating a map of shared coordinates
+    const jitteredVols = useMemo(() => {
+        const coordsMap = {};
+        return volunteers.map(v => {
+            const key = `${v.lat.toFixed(4)},${v.lng.toFixed(4)}`;
+            const count = coordsMap[key] || 0;
+            coordsMap[key] = count + 1;
+
+            if (count > 0) {
+                // Spherical jitter
+                const angle = (count * 137.5) * (Math.PI / 180); // Golden angle
+                const radius = 0.0005 * Math.sqrt(count);
+                return {
+                    ...v,
+                    lat: v.lat + radius * Math.cos(angle),
+                    lng: v.lng + radius * Math.sin(angle)
+                };
+            }
+            return v;
+        });
+    }, [volunteers]);
+
+    const jitteredTasks = useMemo(() => {
+        const coordsMap = {};
+        return tasks.map(t => {
+            const key = `${t.lat.toFixed(4)},${t.lng.toFixed(4)}`;
+            const count = coordsMap[key] || 0;
+            coordsMap[key] = count + 1;
+
+            if (count > 0) {
+                const angle = (count * 137.5) * (Math.PI / 180);
+                const radius = 0.0006 * Math.sqrt(count);
+                return {
+                    ...t,
+                    lat: t.lat + radius * Math.cos(angle),
+                    lng: t.lng + radius * Math.sin(angle)
+                };
+            }
+            return t;
+        });
+    }, [tasks]);
+
+    const filteredVols = jitteredVols.filter(v => {
+        if (volCity && v.city !== volCity) return false;
+        if (volStatus && v.status !== volStatus) return false;
+        if (volType && v.volunteer_type !== volType) return false;
+        if (volCar && !v.has_car) return false;
         return true;
     });
 
-    const filteredTasks = tasks.filter(t => {
-        if (filterStatus && t.status !== filterStatus) return false;
-        if (filterUrgency && t.urgency !== filterUrgency) return false;
+    const filteredTasks = jitteredTasks.filter(t => {
+        if (taskCity && t.city !== taskCity) return false;
+        if (taskStatus && t.status !== taskStatus) return false;
+        if (taskUrgency && t.urgency !== taskUrgency) return false;
         return true;
     });
+
+    const FilterBox = ({ title, children }) => (
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm space-y-3">
+            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                <Filter size={14} /> {title}
+            </h4>
+            <div className="grid grid-cols-2 gap-2">
+                {children}
+            </div>
+        </div>
+    );
+
+    const selectStyle = "w-full border border-gray-100 rounded-lg py-2 px-3 text-xs bg-gray-50 outline-none focus:ring-1 focus:ring-primary/30";
 
     return (
-        <div className="flex flex-col h-full animate-in fade-in duration-500" style={{ minHeight: '80vh' }}>
-            {/* Header */}
-            <div className="flex justify-between items-center mb-4">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-gray-900">מפת שליטה בזמן אמת</h2>
-                    <p className="text-gray-500 mt-1">
-                        <span className="font-medium text-blue-600">{filteredVols.length} מתנדבים</span>
-                        {' · '}
-                        <span className="font-medium text-red-500">{filteredTasks.length} משימות</span>
-                    </p>
+        <div className="flex flex-col lg:flex-row h-full gap-4 animate-in fade-in duration-500" style={{ minHeight: '82vh' }}>
+
+            {/* Sidebar Filters */}
+            <div className="w-full lg:w-80 flex flex-col gap-4 shrink-0">
+                <div className="bg-white rounded-2xl border border-primary/20 p-5 shadow-sm space-y-1">
+                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">שליטה ומפה</h2>
+                    <p className="text-xs text-gray-500 font-bold">מציג נתוני שטח בזמן אמת</p>
+                </div>
+
+                <FilterBox title="מסנני משימות">
+                    <select value={taskCity} onChange={e => setTaskCity(e.target.value)} className={selectStyle}>
+                        <option value="">כל הערים</option>
+                        {taskCities.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <select value={taskUrgency} onChange={e => setTaskUrgency(e.target.value)} className={selectStyle}>
+                        <option value="">כל הדחיפויות</option>
+                        <option value="emergency">🔴 חירום</option>
+                        <option value="high">גבוהה</option>
+                        <option value="medium">בינונית</option>
+                        <option value="low">נמוכה</option>
+                    </select>
+                    <select value={taskStatus} onChange={e => setTaskStatus(e.target.value)} className={selectStyle}>
+                        <option value="">כל הסטטוסים</option>
+                        <option value="open">פתוחה</option>
+                        <option value="assigning">בשיבוץ</option>
+                        <option value="full">מלאה</option>
+                        <option value="completed">הושלמה</option>
+                    </select>
+                    <button onClick={() => setShowTasks(!showTasks)} className={`w-full py-2 rounded-lg text-xs font-black border transition-all ${showTasks ? 'bg-red-50 text-red-600 border-red-200' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
+                        {showTasks ? 'הצג משימות' : 'הסתר משימות'}
+                    </button>
+                </FilterBox>
+
+                <FilterBox title="מסנני מתנדבים">
+                    <select value={volCity} onChange={e => setVolCity(e.target.value)} className={selectStyle}>
+                        <option value="">כל הערים</option>
+                        {volCities.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <select value={volType} onChange={e => setVolType(e.target.value)} className={selectStyle}>
+                        <option value="">סוג (הכל)</option>
+                        <option value="individual">יחידים</option>
+                        <option value="group">קבוצות</option>
+                    </select>
+                    <select value={volStatus} onChange={e => setVolStatus(e.target.value)} className={selectStyle}>
+                        <option value="">כל הסטטוסים</option>
+                        <option value="available">פנוי</option>
+                        <option value="assigned">בפעילות</option>
+                        <option value="busy">לא זמין</option>
+                    </select>
+                    <button onClick={() => setShowVols(!showVols)} className={`w-full py-2 rounded-lg text-xs font-black border transition-all ${showVols ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
+                        {showVols ? 'הצג מתנדבים' : 'הסתר מתנדבים'}
+                    </button>
+                    <label className="col-span-2 flex items-center justify-center gap-2 p-2 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                        <input type="checkbox" checked={volCar} onChange={e => setVolCar(e.target.checked)} className="rounded text-primary" />
+                        <span className="text-xs font-bold text-gray-700">רק מתנדבים עם רכב</span>
+                    </label>
+                </FilterBox>
+
+                <div className="mt-auto bg-gray-900 rounded-2xl p-5 text-white">
+                    <div className="flex justify-between items-center mb-4">
+                        <span className="text-xs font-bold text-gray-400">סטטיסטיקת מפה</span>
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <div className="text-2xl font-black">{filteredTasks.length}</div>
+                            <div className="text-[10px] text-gray-400 font-bold uppercase">משימות</div>
+                        </div>
+                        <div>
+                            <div className="text-2xl font-black">{filteredVols.length}</div>
+                            <div className="text-[10px] text-gray-400 font-bold uppercase">מתנדבים</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Filter bar */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-4 flex flex-wrap gap-3 items-center">
-                <div className="flex items-center gap-2 text-gray-500 font-semibold text-sm pl-2 border-l border-gray-200">
-                    <Filter size={15} className="text-primary" /> סינון מפה
-                </div>
-
-                {/* Toggle layers */}
-                <button
-                    onClick={() => setShowVols(!showVols)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all ${showVols ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-white text-gray-400 border-gray-200'}`}
-                >
-                    👤 מתנדבים
-                </button>
-                <button
-                    onClick={() => setShowTasks(!showTasks)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all ${showTasks ? 'bg-red-100 text-red-600 border-red-200' : 'bg-white text-gray-400 border-gray-200'}`}
-                >
-                    📋 משימות
-                </button>
-
-                <div className="w-px h-6 bg-gray-200" />
-
-                {/* City filter */}
-                <select value={filterCity} onChange={e => setFilterCity(e.target.value)}
-                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary bg-white">
-                    <option value="">כל הערים</option>
-                    {cities.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-
-                {/* Vol status filter */}
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary bg-white">
-                    <option value="">כל הסטטוסים</option>
-                    <option value="available">פנוי</option>
-                    <option value="assigned">בפעילות</option>
-                    <option value="busy">לא זמין</option>
-                </select>
-
-                {/* Task urgency filter */}
-                <select value={filterUrgency} onChange={e => setFilterUrgency(e.target.value)}
-                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary bg-white">
-                    <option value="">כל הדחיפויות</option>
-                    <option value="emergency">🔴 חירום</option>
-                    <option value="high">גבוהה</option>
-                    <option value="medium">בינונית</option>
-                    <option value="low">נמוכה</option>
-                </select>
-
-                {/* Car filter */}
-                <label className="flex items-center gap-1.5 cursor-pointer text-sm text-gray-600 font-medium">
-                    <input type="checkbox" checked={filterCar} onChange={e => setFilterCar(e.target.checked)} className="rounded" />
-                    <Car size={14} /> רק עם רכב
-                </label>
-            </div>
-
-            {/* Map */}
-            <div className="flex-1 rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-gray-100" style={{ minHeight: '520px' }}>
-                <MapContainer
-                    center={[31.5, 34.8]}
-                    zoom={8}
-                    style={{ height: '100%', width: '100%', minHeight: '520px' }}
-                    scrollWheelZoom={true}
-                >
-                    <TileLayer
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    />
-
+            {/* Map Area */}
+            <div className="flex-1 rounded-3xl overflow-hidden shadow-2xl border-4 border-white relative z-0">
+                <MapContainer center={[31.5, 34.8]} zoom={8} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
                     <FitBounds volunteers={filteredVols} tasks={filteredTasks} />
 
                     {/* Task markers */}
                     {showTasks && filteredTasks.map(t => (
                         <Marker key={t.id} position={[t.lat, t.lng]} icon={taskIconFn(t.urgency)}>
                             <Popup>
-                                <div className="text-right min-w-[180px]" dir="rtl">
-                                    <h3 className="font-bold text-base mb-1">{t.name || t.type}</h3>
-                                    {t.description && <p className="text-gray-500 text-sm mb-2">{t.description}</p>}
-                                    <div className="flex flex-wrap gap-1 mb-2">
-                                        <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-md font-semibold">{t.urgency}</span>
-                                        <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-md">{t.status}</span>
+                                <div className="text-right p-1 min-w-[200px]" dir="rtl">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center"><AlertCircle size={18} /></div>
+                                        <div>
+                                            <h3 className="font-black text-sm text-gray-900">{t.name}</h3>
+                                            <p className="text-[10px] text-gray-500 font-bold">{t.type}</p>
+                                        </div>
                                     </div>
-                                    <div className="text-sm text-gray-600 flex items-center gap-1"><MapPin size={12} /> {t.address}, {t.city}</div>
+                                    <div className="space-y-1 text-xs text-gray-600 mb-3">
+                                        <div className="flex items-center gap-1.5"><MapPin size={12} className="text-gray-400" /> {t.address}, {t.city}</div>
+                                        <div className="flex items-center gap-1.5"><Hammer size={12} className="text-gray-400" /> דחיפות: {t.urgency}</div>
+                                    </div>
+                                    <div className={`text-[10px] font-bold px-2 py-1 rounded-full inline-block ${t.status === 'open' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}> {t.status === 'open' ? 'פתוחה לרישום' : 'בטיפול'} </div>
                                 </div>
                             </Popup>
                         </Marker>
@@ -193,23 +266,24 @@ const MapView = () => {
 
                     {/* Volunteer markers */}
                     {showVols && filteredVols.map(v => (
-                        <Marker key={v.id} position={[v.lat, v.lng]} icon={volIcon}>
+                        <Marker key={v.id} position={[v.lat, v.lng]} icon={v.volunteer_type === 'group' ? groupIcon : volIcon}>
                             <Popup>
-                                <div className="text-right min-w-[180px]" dir="rtl">
-                                    <h3 className="font-bold text-base mb-1">{v.full_name} {v.age && `(${v.age})`}</h3>
-                                    <div className="text-sm text-gray-600 space-y-1">
-                                        <div className="flex items-center gap-1"><Phone size={12} /> <span dir="ltr">{v.phone}</span></div>
-                                        <div className="flex items-center gap-1"><MapPin size={12} /> {v.address}, {v.city}</div>
-                                        <div className="flex items-center gap-1"><Car size={12} /> {v.has_car ? '✓ יש רכב' : 'ללא רכב'}</div>
-                                    </div>
-                                    {v.skills && v.skills.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mt-2">
-                                            {v.skills.map(s => <span key={s} className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-md">{s}</span>)}
+                                <div className="text-right p-1 min-w-[200px]" dir="rtl">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${v.volunteer_type === 'group' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                                            {v.volunteer_type === 'group' ? <Users size={18} /> : <Users size={18} />}
                                         </div>
-                                    )}
-                                    <div className={`mt-2 text-xs font-semibold px-2 py-0.5 rounded-full inline-block ${v.status === 'available' ? 'bg-emerald-100 text-emerald-700' : v.status === 'busy' ? 'bg-red-100 text-red-600' : 'bg-purple-100 text-purple-700'}`}>
-                                        {v.status === 'available' ? 'פנוי לשיבוץ' : v.status === 'busy' ? 'לא זמין' : 'בפעילות'}
+                                        <div>
+                                            <h3 className="font-black text-sm text-gray-900">{v.volunteer_type === 'group' ? v.group_name : v.full_name}</h3>
+                                            <p className="text-[10px] text-gray-500 font-bold">{v.volunteer_type === 'group' ? `קבוצה (${v.group_size} איש)` : `מתנדב יחיד (גיל ${v.age || '?'})`}</p>
+                                        </div>
                                     </div>
+                                    <div className="space-y-1 text-xs text-gray-600 mb-3">
+                                        <div className="flex items-center gap-1.5"><Phone size={12} className="text-gray-400" /> <span dir="ltr">{v.volunteer_type === 'group' ? v.contact_phone : v.phone}</span></div>
+                                        <div className="flex items-center gap-1.5"><MapPin size={12} className="text-gray-400" /> {v.city}</div>
+                                        {v.has_car && <div className="flex items-center gap-1.5 text-emerald-600 font-bold"><Car size={12} /> בעל רכב</div>}
+                                    </div>
+                                    <div className={`text-[10px] font-bold px-2 py-1 rounded-full inline-block ${v.status === 'available' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}> {v.status === 'available' ? 'פנוי לשיבוץ' : 'בפעילות'} </div>
                                 </div>
                             </Popup>
                         </Marker>

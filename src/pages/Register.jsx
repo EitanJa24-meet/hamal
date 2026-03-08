@@ -48,6 +48,7 @@ const Register = () => {
             skills: formData.skills,
             gender: formData.gender,
             status: 'available',
+            volunteer_type: 'individual',
             lat: loc.lat,
             lng: loc.lng
         }]);
