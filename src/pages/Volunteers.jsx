@@ -149,7 +149,10 @@ const Volunteers = () => {
                                     <Users className={vol.status === 'assigned' ? 'text-purple-600' : 'text-blue-600'} size={24} />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-lg text-gray-900">{vol.full_name}</h3>
+                                    <h3 className="font-bold text-lg text-gray-900">
+                                        {vol.full_name}
+                                        {vol.age && <span className="text-sm font-normal text-gray-400 mr-2">({vol.age})</span>}
+                                    </h3>
                                     <span className={`text-xs px-2 py-0.5 rounded-full ${vol.status === 'available' ? 'bg-emerald-100 text-emerald-700' : (vol.status === 'busy' ? 'bg-red-100 text-red-700' : 'bg-purple-100 text-purple-700')}`}>
                                         {vol.status === 'available' ? 'פנוי לשיבוץ' : (vol.status === 'busy' ? 'לא זמין' : 'בפעילות')}
                                     </span>
