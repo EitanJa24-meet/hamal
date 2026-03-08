@@ -26,15 +26,13 @@ const Layout = () => {
     return (
         <div className="flex h-screen w-full bg-surface overflow-hidden">
             {/* Right Sidebar */}
-            <aside className="w-64 bg-white shadow-xl flex flex-col z-20 shrink-0">
-                <div className="bg-primary text-white p-6 flex flex-col items-center justify-center relative overflow-hidden">
-                    {/* Header Graphic */}
-                    <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white to-transparent"></div>
+            <aside className="w-64 bg-white shadow-xl flex flex-col z-20 shrink-0 border-l border-gray-100">
+                <div className="bg-white p-6 flex flex-col items-center justify-center relative overflow-hidden border-b border-gray-50">
                     <div className="flex flex-col items-center gap-2 z-10 w-full justify-center">
-                        <img src="/logo.png" alt="Logo" className="h-20 w-auto bg-white/20 rounded-md p-0.5" />
+                        <img src="/logo.png" alt="Logo" className="h-20 w-auto object-contain" />
                         <div className="text-center">
-                            <h1 className="text-lg font-bold tracking-tight">לב אחד</h1>
-                            <p className="text-xs opacity-80 font-medium">חמ"ל דרך פרת</p>
+                            <h1 className="text-lg font-bold tracking-tight text-primary">לב אחד</h1>
+                            <p className="text-xs text-gray-400 font-bold">חמ"ל דרך פרת</p>
                         </div>
                     </div>
                 </div>
