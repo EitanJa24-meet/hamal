@@ -114,13 +114,28 @@ const Tasks = () => {
 
     const handleSave = async (data) => {
         let lat = data.lat, lng = data.lng;
-        if (!data.id) { const loc = await geocodeAddress(data.address, data.city); lat = loc.lat; lng = loc.lng; }
+        if (!data.id) {
+            const loc = await geocodeAddress(data.address, data.city);
+            lat = loc.lat; lng = loc.lng;
+        }
+
+        // Only send columns that exist in the DB schema — strip anything else
+        const allowedFields = ['id', 'name', 'type', 'description', 'address', 'city', 'lat', 'lng',
+            'start_time', 'end_time', 'urgency', 'volunteers_needed', 'age_limit',
+            'needs_car', 'requesting_org', 'contact_name', 'contact_phone',
+            'internal_notes', 'status', 'volunteers_assigned'];
+        const clean = {};
+        allowedFields.forEach(f => { if (data[f] !== undefined) clean[f] = data[f]; });
+        clean.lat = lat; clean.lng = lng;
+
         if (data.id) {
-            const { error } = await supabase.from('tasks').update(data).eq('id', data.id);
-            if (!error) setTasks(tasks.map(t => t.id === data.id ? data : t));
+            const { error } = await supabase.from('tasks').update(clean).eq('id', data.id);
+            if (error) { console.error('Task update error:', error); alert('שגיאה בעדכון: ' + error.message); return; }
+            setTasks(tasks.map(t => t.id === data.id ? { ...t, ...clean } : t));
         } else {
-            const { data: inserted, error } = await supabase.from('tasks').insert([{ ...data, lat, lng }]).select();
-            if (!error && inserted) setTasks([inserted[0], ...tasks]);
+            const { data: inserted, error } = await supabase.from('tasks').insert([clean]).select();
+            if (error) { console.error('Task insert error:', error); alert('שגיאה בשמירה: ' + error.message); return; }
+            if (inserted && inserted.length > 0) setTasks([inserted[0], ...tasks]);
         }
         setIsModalOpen(false);
     };

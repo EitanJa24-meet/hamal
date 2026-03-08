@@ -61,12 +61,24 @@ const Volunteers = () => {
             const loc = await geocodeAddress(data.address, data.city);
             lat = loc.lat; lng = loc.lng;
         }
+
+        // Strip any keys that don't exist in DB schema
+        const allowedFields = ['id', 'full_name', 'phone', 'age', 'address', 'city', 'lat', 'lng',
+            'has_car', 'gender', 'skills', 'notes', 'status',
+            'availability_days', 'availability_hours', 'emergency_contact',
+            'tasks_completed', 'max_travel_radius_km'];
+        const clean = {};
+        allowedFields.forEach(f => { if (data[f] !== undefined) clean[f] = data[f]; });
+        clean.lat = lat; clean.lng = lng;
+
         if (data.id) {
-            const { error } = await supabase.from('volunteers').update(data).eq('id', data.id);
-            if (!error) setVolunteers(volunteers.map(v => v.id === data.id ? data : v));
+            const { error } = await supabase.from('volunteers').update(clean).eq('id', data.id);
+            if (error) { console.error('Volunteer update error:', error); alert('שגיאה בעדכון: ' + error.message); return; }
+            setVolunteers(volunteers.map(v => v.id === data.id ? { ...v, ...clean } : v));
         } else {
-            const { data: inserted, error } = await supabase.from('volunteers').insert([{ ...data, lat, lng }]).select();
-            if (!error && inserted) setVolunteers([inserted[0], ...volunteers]);
+            const { data: inserted, error } = await supabase.from('volunteers').insert([clean]).select();
+            if (error) { console.error('Volunteer insert error:', error); alert('שגיאה בשמירה: ' + error.message); return; }
+            if (inserted && inserted.length > 0) setVolunteers([inserted[0], ...volunteers]);
         }
         setIsModalOpen(false);
     };
