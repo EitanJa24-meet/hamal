@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Search, Plus, Download, ChevronDown, Trash2, Edit2, MapPin, Users, HeartHandshake, Phone, Car } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { getDistance } from 'geolib';
+import TaskModal from '../components/TaskModal';
+import * as XLSX from 'xlsx';
 
 const FilterSelect = ({ label }) => (
     <div className="relative">
@@ -62,6 +64,8 @@ const Tasks = () => {
     const [tasks, setTasks] = useState([]);
     const [volunteers, setVolunteers] = useState([]);
     const [expandedTaskId, setExpandedTaskId] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingTask, setEditingTask] = useState(null);
 
     useEffect(() => {
         const load = async () => {
@@ -108,6 +112,27 @@ const Tasks = () => {
         return sorted.slice(0, 4); // Top 4
     };
 
+    const handleSave = async (data) => {
+        const lat = data.lat || (32.0853 + (Math.random() * 0.1 - 0.05));
+        const lng = data.lng || (34.7818 + (Math.random() * 0.1 - 0.05));
+
+        if (data.id) {
+            const { error } = await supabase.from('tasks').update(data).eq('id', data.id);
+            if (!error) setTasks(tasks.map(t => t.id === data.id ? data : t));
+        } else {
+            const { data: inserted, error } = await supabase.from('tasks').insert([{ ...data, lat, lng }]).select();
+            if (!error && inserted) setTasks([inserted[0], ...tasks]);
+        }
+        setIsModalOpen(false);
+    };
+
+    const handleExport = () => {
+        const ws = XLSX.utils.json_to_sheet(tasks);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Tasks");
+        XLSX.writeFile(wb, "Tasks_Export.xlsx");
+    };
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Header */}
@@ -117,11 +142,11 @@ const Tasks = () => {
                     <p className="text-gray-500 mt-1">{tasks.length} משימות · מציג הכל</p>
                 </div>
                 <div className="flex gap-3">
-                    <button className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl flex items-center gap-2 font-medium hover:bg-gray-50 transition-colors shadow-sm">
+                    <button onClick={handleExport} className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl flex items-center gap-2 font-medium hover:bg-gray-50 transition-colors shadow-sm">
                         <Download size={18} className="text-gray-400" />
                         ייצוא נתונים
                     </button>
-                    <button className="bg-primary hover:bg-blue-700 text-white px-5 py-2 rounded-xl flex items-center gap-2 font-semibold shadow-md shadow-primary/20 transition-all hover:scale-105 active:scale-95">
+                    <button onClick={() => { setEditingTask(null); setIsModalOpen(true); }} className="bg-primary hover:bg-blue-700 text-white px-5 py-2 rounded-xl flex items-center gap-2 font-semibold shadow-md shadow-primary/20 transition-all hover:scale-105 active:scale-95">
                         <Plus size={20} />
                         משימה חדשה
                     </button>
@@ -187,7 +212,10 @@ const Tasks = () => {
 
                                     {/* Action Buttons (Hover) */}
                                     <div className="hidden md:flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity pr-4">
-                                        <button className="p-2 text-gray-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-colors">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setEditingTask(task); setIsModalOpen(true); }}
+                                            className="p-2 text-gray-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-colors"
+                                        >
                                             <Edit2 size={18} />
                                         </button>
                                         <button
@@ -225,6 +253,7 @@ const Tasks = () => {
                     })}
                 </div>
             </div>
+            <TaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} task={editingTask} onSave={handleSave} />
         </div>
     );
 };
