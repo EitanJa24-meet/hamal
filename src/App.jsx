@@ -6,6 +6,7 @@ import Tasks from './pages/Tasks';
 import Volunteers from './pages/Volunteers';
 import MapView from './pages/Map';
 import Login from './pages/Login';
+import Register from './pages/Register';
 
 // Mock Auth Guard
 const RequireAuth = ({ children }) => {
@@ -18,6 +19,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
         <Route path="/" element={
           <RequireAuth>

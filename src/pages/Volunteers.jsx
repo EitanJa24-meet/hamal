@@ -32,7 +32,7 @@ const Volunteers = () => {
                                 </div>
                                 <div>
                                     <h3 className="font-bold text-lg text-gray-900">{vol.name}</h3>
-                                    <span className={`text - xs px - 2 py - 0.5 rounded - full ${vol.status === 'available' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'} `}>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${vol.status === 'available' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                                         {vol.status === 'available' ? 'פנוי' : 'עסוק'}
                                     </span>
                                 </div>

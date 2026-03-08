@@ -6,7 +6,7 @@ import { supabase } from '../supabaseClient';
 const StatCard = ({ title, subtitle, count, icon: Icon, iconColor, iconBg }) => (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between group">
         <div className="flex justify-between items-start mb-4">
-            <div className={`p - 3 rounded - xl ${iconBg} shadow - sm group - hover: scale - 110 transition - transform`}>
+            <div className={`p-3 rounded-xl ${iconBg} shadow-sm group-hover:scale-110 transition-transform`}>
                 <Icon className={iconColor} size={24} />
             </div>
             <div className="text-right w-full pr-4">
@@ -128,7 +128,7 @@ const Dashboard = () => {
                                     labelLine={false}
                                 >
                                     {charts.byType.map((entry, index) => (
-                                        <Cell key={`cell - ${index} `} fill={entry.color || '#2563eb'} />
+                                        <Cell key={`cell-${index}`} fill={entry.color || '#2563eb'} />
                                     ))}
                                 </Pie>
                                 <Tooltip />
