@@ -66,7 +66,7 @@ const Dashboard = () => {
         <div className="space-y-8 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight text-gray-900">דאשבורד מרכז שליטה</h2>
+                    <h2 className="text-3xl font-bold tracking-tight text-gray-900">דאשבורד חמ"ל</h2>
                     <p className="text-gray-500 mt-1">סקירת מצב בזמן אמת</p>
                 </div>
                 {/* Note: Sidebar already has the Global Emergency button */}

@@ -31,10 +31,10 @@ const Layout = () => {
                     {/* Header Graphic */}
                     <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white to-transparent"></div>
                     <div className="flex flex-col items-center gap-2 z-10 w-full justify-center">
-                        <img src="/logo.png" alt="Logo" className="h-12 w-auto bg-white/20 rounded-md p-0.5" />
+                        <img src="/logo.png" alt="Logo" className="h-20 w-auto bg-white/20 rounded-md p-0.5" />
                         <div className="text-center">
-                            <h1 className="text-lg font-bold tracking-tight">מרכז שליטה</h1>
-                            <p className="text-xs opacity-80 font-medium">דרך פרת</p>
+                            <h1 className="text-lg font-bold tracking-tight">לב אחד</h1>
+                            <p className="text-xs opacity-80 font-medium">חמ"ל דרך פרת</p>
                         </div>
                     </div>
                 </div>

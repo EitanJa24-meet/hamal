@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #7e9ceb;
-  /* Soft blue */
+  --color-primary: #1e3a8a;
+  /* Deep blue from logo */
   --color-alert: #e88b8b;
   /* Soft red */
   --color-surface: #ffffff;
