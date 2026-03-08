@@ -310,7 +310,7 @@ const Tasks = () => {
                                             <button onClick={() => archiveTask(task.id, showArchived)} className={`p-2.5 bg-gray-50 rounded-xl transition-all ${showArchived ? 'text-emerald-500 hover:bg-emerald-50' : 'text-gray-400 hover:text-amber-600 hover:bg-amber-50'}`}>
                                                 {showArchived ? <CheckCircle2 size={18} /> : <Archive size={18} />}
                                             </button>
-                                            {!showArchived && <button onClick={async () => { if (confirm('למחוק לצמיתות?')) { await supabase.from('tasks').delete().eq('id', task.id); loadData(); } }} className="p-2.5 bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>}
+                                            <button onClick={async () => { if (confirm('למחוק לצמיתות?')) { await supabase.from('tasks').delete().eq('id', task.id); loadData(); } }} className="p-2.5 bg-gray-50 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>
                                         </div>
                                     </div>
 
