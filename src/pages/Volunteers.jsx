@@ -185,13 +185,14 @@ const Volunteers = () => {
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">שם / קבוצה</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">טלפון</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">אזור</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">גיל</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">מגדר</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">סטטוס</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">פעולות</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                            {isLoading && volunteers.length === 0 ? (<tr><td colSpan="6" className="px-6 py-12 text-center text-gray-400"><Loader2 className="animate-spin inline mr-2" />טוען...</td></tr>)
+                            {isLoading && volunteers.length === 0 ? (<tr><td colSpan="7" className="px-6 py-12 text-center text-gray-400"><Loader2 className="animate-spin inline mr-2" />טוען...</td></tr>)
                                 : filtered.map((v) => (
                                     <tr key={v.id} className={`hover:bg-gray-50/50 transition-colors group ${v.id === targetedId ? 'bg-blue-50/50 ring-2 ring-primary ring-inset' : ''}`}>
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -202,6 +203,7 @@ const Volunteers = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600" dir="ltr">{v.volunteer_type === 'group' ? v.contact_phone : v.phone}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-bold">{v.city}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{v.volunteer_type === 'group' ? v.group_size : v.age || '-'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{v.gender || '-'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">{statusBadge(v.status)}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">

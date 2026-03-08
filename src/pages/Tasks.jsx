@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Trash2, Edit2, MapPin, Users, HeartHandshake, Car, Filter, X, UserCheck, Loader2 } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, MapPin, Users, HeartHandshake, Car, Filter, X, UserCheck, Loader2, Archive, MessageCircle, UserPlus, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { getDistance } from 'geolib';
 import TaskModal from '../components/TaskModal';
@@ -12,7 +12,7 @@ const STATUS_COLORS = { open: 'bg-blue-100 text-blue-700', assigning: 'bg-purple
 const STATUS_LABELS = { open: 'פתוחה', assigning: 'בשיבוץ', completed: 'הושלמה' };
 const PRIORITY_CITIES = ['תל אביב', 'ירושלים', 'חיפה', 'באר שבע', 'עוטף עזה', 'גבול הצפון', 'שדרות', 'אשקלון'];
 
-const MatchCard = ({ volunteer, task, onAssign }) => {
+const MatchCard = ({ volunteer, task, onAssign, onWhatsApp }) => {
     let distFormatted = '';
     if (volunteer.lat && volunteer.lng && task.lat && task.lng) {
         const d = getDistance({ latitude: task.lat, longitude: task.lng }, { latitude: volunteer.lat, longitude: volunteer.lng });
@@ -35,7 +35,21 @@ const MatchCard = ({ volunteer, task, onAssign }) => {
                     {volunteer.has_car && <div className="flex items-center gap-1 text-emerald-600 font-bold mt-1"><Car size={10} /> רכב</div>}
                 </div>
             </div>
-            <button onClick={() => onAssign(volunteer, task)} className="mt-2 w-full bg-primary text-white py-1.5 rounded-lg font-bold shadow-sm hover:bg-blue-700 transition text-xs">✉️ שיבוץ + WhatsApp</button>
+
+            <div className="flex gap-2 mt-2">
+                <button
+                    onClick={() => onAssign(volunteer, task)}
+                    className="flex-1 bg-primary text-white py-1.5 rounded-lg font-bold shadow-sm hover:bg-blue-700 transition text-[11px] flex items-center justify-center gap-1"
+                >
+                    <UserPlus size={12} /> שיבוץ
+                </button>
+                <button
+                    onClick={() => onWhatsApp(volunteer, task)}
+                    className="flex-1 bg-emerald-500 text-white py-1.5 rounded-lg font-bold shadow-sm hover:bg-emerald-600 transition text-[11px] flex items-center justify-center gap-1"
+                >
+                    <MessageCircle size={12} /> WhatsApp
+                </button>
+            </div>
         </div>
     );
 };
@@ -51,14 +65,9 @@ const Tasks = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
     const [volSearch, setVolSearch] = useState('');
-    const [matchGender, setMatchGender] = useState(''); // Babysitting use case
+    const [matchGender, setMatchGender] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-
-    // Filters
-    const [search, setSearch] = useState('');
-    const [filterUrgency, setFilterUrgency] = useState('');
-    const [filterStatus, setFilterStatus] = useState('');
-    const [filterCity, setFilterCity] = useState('');
+    const [showArchived, setShowArchived] = useState(false);
 
     const fetchTable = async (table) => {
         let all = [];
@@ -79,7 +88,9 @@ const Tasks = () => {
     const loadData = async () => {
         setIsLoading(true);
         const [t, v, a] = await Promise.all([fetchTable('tasks'), fetchTable('volunteers'), fetchTable('assignments')]);
-        setTasks(t); setAllVolunteers(v); setAssignments(a);
+        setTasks(t);
+        setAllVolunteers(v);
+        setAssignments(a);
         setIsLoading(false);
     };
 
@@ -93,6 +104,7 @@ const Tasks = () => {
 
     const filtered = useMemo(() => {
         return tasks.filter(t => {
+            if (t.is_archived !== showArchived) return false;
             if (targetedId && t.id === targetedId) return true;
             if (targetedId) return false;
             if (search && !t.name?.toLowerCase().includes(search.toLowerCase())) return false;
@@ -101,21 +113,36 @@ const Tasks = () => {
             if (filterCity && t.city !== filterCity) return false;
             return true;
         });
-    }, [tasks, search, filterUrgency, filterStatus, filterCity, targetedId]);
+    }, [tasks, search, filterUrgency, filterStatus, filterCity, targetedId, showArchived]);
+
+    const [search, setSearch] = useState('');
+    const [filterUrgency, setFilterUrgency] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [filterCity, setFilterCity] = useState('');
 
     const handleAssign = async (volunteer, task) => {
-        const name = v.volunteer_type === 'group' ? v.group_name : v.full_name;
-        const phone = v.volunteer_type === 'group' ? v.contact_phone : v.phone;
         const { data, error } = await supabase.from('assignments').insert({ task_id: task.id, volunteer_id: volunteer.id, status: 'assigned' }).select();
-        if (error) { alert('שגיאה: ' + error.message); return; }
+        if (error) { if (error.code === '23505') alert('כבר משובץ'); else alert('שגיאה: ' + error.message); return; }
         if (data) setAssignments([...assignments, data[0]]);
+        if (task.status === 'open') {
+            await supabase.from('tasks').update({ status: 'assigning' }).eq('id', task.id);
+            setTasks(tasks.map(t => t.id === task.id ? { ...t, status: 'assigning' } : t));
+        }
+    };
+
+    const handleWhatsApp = (volunteer, task) => {
+        const name = volunteer.volunteer_type === 'group' ? volunteer.group_name : volunteer.full_name;
+        const phone = volunteer.volunteer_type === 'group' ? volunteer.contact_phone : volunteer.phone;
         const msg = `היי ${name},\nמשימה קרובה: *${task.name}*\nכתובת: ${task.address}, ${task.city}\nאישור?`;
         const phoneNum = (phone || '').replace(/[^0-9]/g, '');
         const intlPhone = phoneNum.startsWith('0') ? '972' + phoneNum.slice(1) : phoneNum;
         window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, '_blank');
-        if (task.status === 'open') {
-            await supabase.from('tasks').update({ status: 'assigning' }).eq('id', task.id);
-            setTasks(tasks.map(t => t.id === task.id ? { ...t, status: 'assigning' } : t));
+    };
+
+    const archiveTask = async (id, undo = false) => {
+        const { error } = await supabase.from('tasks').update({ is_archived: !undo, archived_at: undo ? null : new Date().toISOString() }).eq('id', id);
+        if (!error) {
+            setTasks(tasks.map(t => t.id === id ? { ...t, is_archived: !undo } : t));
         }
     };
 
@@ -155,8 +182,23 @@ const Tasks = () => {
     return (
         <div className="space-y-5 animate-in fade-in duration-500 pb-20 text-right" dir="rtl">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div><h2 className="text-3xl font-bold tracking-tight text-gray-900">משימות</h2><p className="text-gray-500 text-sm">ניהול {tasks.length} משימות פעילות</p></div>
-                <button onClick={() => { setEditingTask(null); setIsModalOpen(true); }} className="px-5 py-2 bg-primary text-white rounded-xl font-bold shadow-md hover:scale-105 transition-all"> + משימה חדשה </button>
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight text-gray-900">{showArchived ? 'ארכיון משימות' : 'משימות פעילות'}</h2>
+                    <p className="text-gray-500 text-sm">ניהול {filtered.length} משימות</p>
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setShowArchived(!showArchived)}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all flex items-center gap-2 ${showArchived ? 'bg-primary text-white' : 'bg-white text-gray-600 border-gray-200'}`}
+                    >
+                        <Archive size={16} /> {showArchived ? 'חזרה למשימות פעילות' : 'צפייה בארכיון'}
+                    </button>
+                    {!showArchived && (
+                        <button onClick={() => { setEditingTask(null); setIsModalOpen(true); }} className="px-5 py-2 bg-primary text-white rounded-xl font-bold shadow-md hover:scale-105 transition-all flex items-center gap-2">
+                            <Plus size={18} /> משימה חדשה
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap gap-3 items-center">
@@ -167,47 +209,80 @@ const Tasks = () => {
                     <optgroup label="שאר הארץ">{cities.filter(c => !PRIORITY_CITIES.includes(c)).map(c => <option key={c} value={c}>{c}</option>)}</optgroup>
                 </select>
                 <select value={filterUrgency} onChange={e => setFilterUrgency(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white"><option value="">דחיפות (הכל)</option>{Object.entries(URGENCY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white"><option value="">סטטוס (הכל)</option><option value="open">פתוחה</option><option value="assigning">בשיבוץ</option></select>
+                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white"><option value="">סטטוס (הכל)</option><option value="open">פתוחה</option><option value="assigning">בשיבוץ</option><option value="completed">הושלמה</option></select>
                 {(search || filterCity || filterUrgency || targetedId) && (<button onClick={() => { setSearch(''); setFilterCity(''); setFilterUrgency(''); setSearchParams({}); }} className="text-gray-400 font-bold text-xs">נקה</button>)}
             </div>
 
             <div className="space-y-3">
                 {isLoading ? <div className="text-center py-20 text-gray-400"><Loader2 className="animate-spin inline mr-2" />טוען...</div> :
-                    filtered.map((task) => {
-                        const isExpanded = expandedTaskId === task.id;
-                        const taskAssigned = assignments.filter(a => a.task_id === task.id);
-                        return (
-                            <div key={task.id} className={`bg-white rounded-2xl border ${isExpanded ? 'border-primary shadow-lg' : 'border-gray-100 shadow-sm'}`}>
-                                <div className="p-4 flex items-center gap-4 cursor-pointer" onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}>
-                                    <div className="flex flex-col gap-1"><div className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${URGENCY_COLORS[task.urgency]}`}>{URGENCY_LABELS[task.urgency]}</div><div className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_COLORS[task.status]}`}>{STATUS_LABELS[task.status]}</div></div>
-                                    <div className="flex-1 min-w-0"><h3 className="font-bold text-gray-900 truncate">{task.name}</h3><div className="flex items-center gap-2 text-xs text-gray-500 font-medium"><MapPin size={12} className="text-gray-400" /> {task.city} · {task.type}</div></div>
-                                    <div className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">שובצו {taskAssigned.length}</div>
-                                </div>
-                                {isExpanded && (
-                                    <div className="border-t border-gray-100 p-5 bg-gray-50/20">
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                            <div className="space-y-4">
-                                                <div className="flex justify-between items-center">
-                                                    <h4 className="text-xs font-black text-gray-400">מתנדבים קרובים</h4>
-                                                    <div className="flex gap-2">
-                                                        <button onClick={() => setMatchGender('')} className={`px-2 py-1 text-[10px] rounded-md ${!matchGender ? 'bg-primary text-white' : 'bg-gray-100 text-gray-400'}`}>הכל</button>
-                                                        <button onClick={() => setMatchGender('נקבה')} className={`px-2 py-1 text-[10px] rounded-md ${matchGender === 'נקבה' ? 'bg-pink-100 text-pink-600 font-bold' : 'bg-gray-100 text-gray-400'}`}>נשים</button>
-                                                        <button onClick={() => setMatchGender('זכר')} className={`px-2 py-1 text-[10px] rounded-md ${matchGender === 'זכר' ? 'bg-blue-100 text-blue-600 font-bold' : 'bg-gray-100 text-gray-400'}`}>גברים</button>
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{getTop15Volunteers(task).map(v => (<MatchCard key={v.id} volunteer={v} task={task} onAssign={handleAssign} />))}</div>
-                                            </div>
-                                            <div className="space-y-4 border-r pr-6 border-gray-100">
-                                                <h4 className="text-xs font-black text-gray-400">שיבוצים פעילים</h4>
-                                                {taskAssigned.map(a => { const vol = allVolunteers.find(v => v.id === a.volunteer_id); return (<div key={a.id} className="bg-white p-3 rounded-xl border border-gray-100 flex items-center justify-between"><div className="text-xs font-bold">{vol ? (vol.volunteer_type === 'group' ? vol.group_name : vol.full_name) : 'נמחק'}</div><button onClick={() => removeAssignment(a.id)} className="text-gray-300 hover:text-red-500"><X size={14} /></button></div>); })}
-                                                <div className="pt-4"><h4 className="text-[10px] font-black text-gray-400 mb-1">חיפוש ידני</h4><input type="text" placeholder="חיפוש מתנדב..." value={volSearch} onChange={e => setVolSearch(e.target.value)} className="w-full text-xs px-3 py-2 border rounded-xl" />{volSearch.length > 2 && allVolunteers.filter(v => (v.full_name || v.group_name).includes(volSearch)).slice(0, 3).map(v => (<button key={v.id} onClick={() => handleAssign(v, task)} className="block w-full text-right p-2 text-[10px] mt-1 hover:bg-gray-50 border rounded-lg">{v.volunteer_type === 'group' ? v.group_name : v.full_name}</button>))}</div>
-                                            </div>
+                    filtered.length === 0 ? <div className="text-center py-20 text-gray-400 bg-white rounded-2xl border border-gray-100 border-dashed">אין משימות להצגה</div> :
+                        filtered.map((task) => {
+                            const isExpanded = expandedTaskId === task.id;
+                            const taskAssigned = assignments.filter(a => a.task_id === task.id);
+                            return (
+                                <div key={task.id} className={`bg-white rounded-2xl border ${isExpanded ? 'border-primary shadow-lg' : 'border-gray-100 shadow-sm'}`}>
+                                    <div className="p-4 flex items-center gap-4">
+                                        <div className="cursor-pointer flex-1 flex items-center gap-4" onClick={() => setExpandedTaskId(isExpanded ? null : task.id)}>
+                                            <div className="flex flex-col gap-1 min-w-[70px]"><div className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-center ${URGENCY_COLORS[task.urgency]}`}>{URGENCY_LABELS[task.urgency]}</div><div className={`text-[10px] font-bold px-2 py-0.5 rounded-full text-center ${STATUS_COLORS[task.status]}`}>{STATUS_LABELS[task.status]}</div></div>
+                                            <div className="flex-1 min-w-0"><h3 className="font-bold text-gray-900 truncate">{task.name}</h3><div className="flex items-center gap-2 text-xs text-gray-500 font-medium"><MapPin size={12} className="text-gray-400" /> {task.city} · {task.type}</div></div>
+                                            <div className="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">שובצו {taskAssigned.length}</div>
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <button onClick={() => { setEditingTask(task); setIsModalOpen(true); }} className="p-2 hover:bg-gray-100 text-gray-400 hover:text-blue-600 rounded-lg transition-colors"><Edit2 size={16} /></button>
+                                            <button onClick={() => archiveTask(task.id, showArchived)} className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${showArchived ? 'text-emerald-500' : 'text-gray-400 hover:text-amber-600'}`}>
+                                                {showArchived ? <CheckCircle2 size={16} /> : <Archive size={16} />}
+                                            </button>
+                                            {!showArchived && <button onClick={async () => { if (confirm('למחוק לצמיתות?')) { await supabase.from('tasks').delete().eq('id', task.id); loadData(); } }} className="p-2 hover:bg-gray-100 text-gray-400 hover:text-red-600 rounded-lg transition-colors"><Trash2 size={16} /></button>}
                                         </div>
                                     </div>
-                                )}
-                            </div>
-                        );
-                    })}
+                                    {isExpanded && (
+                                        <div className="border-t border-gray-100 p-5 bg-gray-50/20">
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                                <div className="space-y-4">
+                                                    <div className="flex justify-between items-center">
+                                                        <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">מתנדבים מומלצים</h4>
+                                                        <div className="flex gap-2 bg-white p-1 rounded-lg border border-gray-100">
+                                                            <button onClick={() => setMatchGender('')} className={`px-2 py-1 text-[10px] rounded-md transition-all ${!matchGender ? 'bg-primary text-white shadow-sm' : 'text-gray-400'}`}>הכל</button>
+                                                            <button onClick={() => setMatchGender('נקבה')} className={`px-2 py-1 text-[10px] rounded-md transition-all ${matchGender === 'נקבה' ? 'bg-pink-100 text-pink-600 font-bold' : 'text-gray-400'}`}>נשים</button>
+                                                            <button onClick={() => setMatchGender('זכר')} className={`px-2 py-1 text-[10px] rounded-md transition-all ${matchGender === 'זכר' ? 'bg-blue-100 text-blue-600 font-bold' : 'text-gray-400'}`}>גברים</button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{getTop15Volunteers(task).map(v => (<MatchCard key={v.id} volunteer={v} task={task} onAssign={handleAssign} onWhatsApp={handleWhatsApp} />))}</div>
+                                                </div>
+                                                <div className="space-y-4 lg:border-r lg:pr-6 border-gray-100">
+                                                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest">שיבוצים פעילים</h4>
+                                                    <div className="space-y-2">
+                                                        {taskAssigned.length === 0 ? <div className="text-[11px] text-gray-400 italic">אין מתנדבים משובצים עדיין.</div> :
+                                                            taskAssigned.map(a => { const vol = allVolunteers.find(v => v.id === a.volunteer_id); return (<div key={a.id} className="bg-white p-3 rounded-xl border border-gray-100 flex items-center justify-between shadow-sm"><div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center"><UserCheck size={12} /></div><div className="text-xs font-bold text-gray-800">{vol ? (vol.volunteer_type === 'group' ? vol.group_name : vol.full_name) : 'נמחק'}</div></div><button onClick={() => removeAssignment(a.id)} className="text-gray-300 hover:text-red-500 p-1"><X size={14} /></button></div>); })}
+                                                    </div>
+                                                    <div className="pt-4 border-t border-gray-100">
+                                                        <h4 className="text-[10px] font-black text-gray-400 mb-2">חיפוש ידני לשיבוץ</h4>
+                                                        <div className="relative">
+                                                            <Search size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300" />
+                                                            <input type="text" placeholder="הקלד שם לחיפוש..." value={volSearch} onChange={e => setVolSearch(e.target.value)} className="w-full text-xs pr-9 py-2 border border-gray-100 rounded-xl bg-white outline-none focus:ring-1 focus:ring-primary/20" />
+                                                        </div>
+                                                        {volSearch.length > 2 && (
+                                                            <div className="mt-2 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden divide-y divide-gray-50">
+                                                                {allVolunteers.filter(v => (v.full_name || v.group_name || '').includes(volSearch)).slice(0, 5).map(v => (
+                                                                    <button key={v.id} onClick={() => { handleAssign(v, task); setVolSearch(''); }} className="w-full text-right p-3 hover:bg-gray-50 flex items-center justify-between group">
+                                                                        <span className="text-xs font-bold text-gray-700">{v.volunteer_type === 'group' ? v.group_name : v.full_name} ({v.city})</span>
+                                                                        <Plus size={14} className="text-gray-300 group-hover:text-primary" />
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="bg-white p-4 rounded-xl border border-gray-100 mt-4">
+                                                        <h5 className="text-[10px] font-black text-gray-400 uppercase mb-2">תיאור המשימה</h5>
+                                                        <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">{task.description || 'אין תיאור מפורט.'}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
             </div>
             <TaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} task={editingTask} onSave={handleSave} />
         </div>

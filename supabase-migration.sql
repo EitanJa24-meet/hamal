@@ -12,8 +12,10 @@ ALTER TABLE public.volunteers ADD COLUMN IF NOT EXISTS group_size INTEGER DEFAUL
 ALTER TABLE public.volunteers ADD COLUMN IF NOT EXISTS contact_person TEXT;
 ALTER TABLE public.volunteers ADD COLUMN IF NOT EXISTS contact_phone TEXT;
 
--- 2. Ensure Tasks table has volunteers_assigned count if needed (though we use assignments table)
+-- 2. Ensure Tasks table has volunteers_assigned count if needed
 ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS volunteers_assigned INTEGER DEFAULT 0;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;
 
 -- 3. Create Assignments table if missing (for many-to-many linking)
 CREATE TABLE IF NOT EXISTS public.assignments (
