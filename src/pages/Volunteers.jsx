@@ -7,6 +7,39 @@ import { geocodeAddress } from '../utils/geocode';
 
 const SKILLS = ['בייביסיטר', 'עזרה לקשישים', 'ניקיון', 'לוגיסטיקה', 'חלוקת אוכל', 'ניקוי רסיסים', 'עזרה כללית'];
 
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Given an object `row` (XLSX parsed row), find the first value whose
+ * header key contains ANY of the supplied substrings.
+ * We strip colons, RTL/LTR unicode marks, tabs, newlines before comparing.
+ */
+const getVal = (row, keys) => {
+    for (const key of Object.keys(row)) {
+        const cleanKey = key
+            .replace(/[\u200f\u200e\u202a-\u202e:]/g, '')
+            .replace(/[\t\r\n]/g, '')
+            .trim();
+        if (keys.some(pk => cleanKey.includes(pk))) {
+            const v = row[key];
+            if (v === undefined || v === null || v === '') return null;
+            return v;
+        }
+    }
+    return null;
+};
+
+/** Strip leading apostrophe (Google Sheets text-force trick), dashes, spaces from phone */
+const cleanPhone = (raw) => {
+    if (raw === null || raw === undefined) return '';
+    return String(raw)
+        .replace(/^[''`״"']/, '')   // leading apostrophe variants
+        .replace(/[-\s]/g, '')       // dashes and spaces
+        .trim();
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const Volunteers = () => {
     const [volunteers, setVolunteers] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,6 +80,8 @@ const Volunteers = () => {
     const hasActiveFilters = search || filterCity || filterStatus || filterSkill || filterCar || filterGender;
     const clearFilters = () => { setSearch(''); setFilterCity(''); setFilterStatus(''); setFilterSkill(''); setFilterCar(''); setFilterGender(''); };
 
+    // ── CRUD ──────────────────────────────────────────────────────────────
+
     const handleDelete = async (id) => {
         if (confirm('האם אתה בטוח שברצונך למחוק מתנדב/ת זה?')) {
             const { error } = await supabase.from('volunteers').delete().eq('id', id);
@@ -62,7 +97,6 @@ const Volunteers = () => {
             lat = loc.lat; lng = loc.lng;
         }
 
-        // Strip any keys that don't exist in DB schema
         const allowedFields = ['id', 'full_name', 'phone', 'age', 'address', 'city', 'lat', 'lng',
             'has_car', 'gender', 'skills', 'notes', 'status',
             'availability_days', 'availability_hours', 'emergency_contact',
@@ -83,77 +117,102 @@ const Volunteers = () => {
         setIsModalOpen(false);
     };
 
+    // ── EXPORT ────────────────────────────────────────────────────────────
+
     const handleExport = () => {
         const ws = XLSX.utils.json_to_sheet(filtered);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Volunteers");
-        XLSX.writeFile(wb, "Volunteers_Export.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, 'Volunteers');
+        XLSX.writeFile(wb, 'Volunteers_Export.xlsx');
     };
+
+    // ── IMPORT ────────────────────────────────────────────────────────────
 
     const handleFileUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
+
         reader.onload = async (evt) => {
             const bstr = evt.target.result;
             const wb = XLSX.read(bstr, { type: 'binary' });
-            const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+            const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
 
             if (data.length === 0) {
                 alert('הקובץ ריק או שהפורמט אינו נתמך.');
                 return;
             }
 
+            // Debug help
+            console.log('📋 עמודות שנמצאו:', Object.keys(data[0]));
+            console.log('📋 שורה 1:', data[0]);
+
             const mappedData = data.map(row => {
-                const getVal = (keys) => {
-                    for (const key of Object.keys(row)) {
-                        const cleanKey = key.replace(/[:\t\r\n]/g, '').trim();
-                        if (keys.some(pk => cleanKey.includes(pk))) return row[key];
-                    }
-                    return null;
-                };
-                const phoneRaw = getVal(['טלפון נייד', 'טלפון', 'נייד']);
-                const phoneStr = phoneRaw != null ? String(phoneRaw).trim() : '';
-                const notesVal = getVal(['הערות', 'שאלות']) || '';
-                const parentPhone = getVal(['טלפון של הורה']);
-                const ageRaw = getVal(['בן כמה אני', 'גיל']);
-                const genderRaw = getVal(['מגדר']);
+                const nameRaw = getVal(row, ['שם מלא', 'שם', 'שחקן']);
+                const phoneRaw = getVal(row, ['טלפון נייד', 'נייד', 'טלפון', 'phone']);
+                const parentRaw = getVal(row, ['טלפון של הורה', 'הורה']);
+                const ageRaw = getVal(row, ['בן כמה אני', 'גיל', 'age']);
+                const genderRaw = getVal(row, ['מגדר']);
+                // Support Google Form field "מאיפה אני בארץ?" for city/region
+                const cityRaw = getVal(row, ['עיר מגורים', 'עיר', 'ישוב', 'יישוב', 'מאיפה אני']);
+                const notesRaw = getVal(row, ['הערות', 'שאלות']) || '';
+                const carRaw = getVal(row, ['רכב', 'has_car', 'יש רכב']);
+
+                const phone = cleanPhone(phoneRaw);
+                const parentPhone = cleanPhone(parentRaw);
+                const mergedNotes = parentPhone
+                    ? `טלפון הורה: ${parentPhone}. ${notesRaw}`
+                    : String(notesRaw);
 
                 return {
-                    full_name: getVal(['שם מלא', 'שם', 'שחקן']) || 'ללא שם',
-                    phone: phoneStr,
+                    full_name: nameRaw ? String(nameRaw).trim() : '',
+                    phone,
                     age: ageRaw ? (parseInt(ageRaw) || null) : null,
-                    city: getVal(['עיר מגורים', 'עיר', 'ישוב', 'יישוב']) || 'תל אביב',
-                    address: getVal(['כתובת']) || '',
+                    city: cityRaw ? String(cityRaw).trim() : 'לא ידוע',
+                    address: String(getVal(row, ['כתובת']) || ''),
                     gender: genderRaw ? String(genderRaw).trim() : null,
-                    has_car: String(getVal(['רכב', 'has_car']) || '').toLowerCase() === 'true' || getVal(['רכב']) === 'כן',
-                    notes: parentPhone ? `טלפון הורה: ${parentPhone}. ${notesVal}` : notesVal,
+                    has_car: String(carRaw || '').trim() === 'כן'
+                        || String(carRaw || '').toLowerCase() === 'true',
+                    notes: mergedNotes.trim(),
                     status: 'available',
                     skills: [],
                 };
             });
 
-            // Filter out rows with no name
-            const validData = mappedData.filter(r => r.full_name && r.full_name !== 'ללא שם');
+            // Keep only rows with a real name (at least 2 characters)
+            const validData = mappedData.filter(r => r.full_name && r.full_name.trim().length >= 2);
 
-            alert(`נמצאו ${validData.length} שורות תקינות מתוך ${data.length}. מתחיל ייבוא עם גיאוקודינג...`);
-
-            // Geocode by city (cached, bulk mode)
-            for (let i = 0; i < validData.length; i++) {
-                const loc = await geocodeAddress('', validData[i].city, true);
-                validData[i].lat = loc.lat;
-                validData[i].lng = loc.lng;
+            if (validData.length === 0) {
+                const keys = Object.keys(data[0] || {});
+                alert(
+                    `⚠️ לא נמצאו שורות תקינות.\n\n` +
+                    `שמות עמודות שנמצאו בקובץ:\n${keys.slice(0, 8).join('\n')}\n\n` +
+                    `ודאי שעמודת השם נקראת "שם מלא" (ניתן גם עם נקודותיים).`
+                );
+                return;
             }
 
-            // Insert in chunks of 50 to avoid Supabase row limit per request
+            alert(`נמצאו ${validData.length} שורות תקינות מתוך ${data.length}.\nמתחיל ייבוא עם גיאוקודינג...`);
+
+            // Geocode – one request per unique city (cached)
+            const geoCache = {};
+            for (let i = 0; i < validData.length; i++) {
+                const city = validData[i].city;
+                if (!geoCache[city]) {
+                    geoCache[city] = await geocodeAddress('', city, true);
+                }
+                validData[i].lat = geoCache[city].lat;
+                validData[i].lng = geoCache[city].lng;
+            }
+
+            // Insert in chunks of 50
             const CHUNK = 50;
-            let inserted = 0;
-            let failed = 0;
+            let inserted = 0, failed = 0;
             for (let i = 0; i < validData.length; i += CHUNK) {
                 const chunk = validData.slice(i, i + CHUNK);
                 const { error } = await supabase.from('volunteers').insert(chunk);
                 if (error) {
-                    console.error('Insert error for chunk', i, error);
+                    console.error('Insert error chunk', i, error);
                     failed += chunk.length;
                 } else {
                     inserted += chunk.length;
@@ -161,14 +220,22 @@ const Volunteers = () => {
             }
 
             loadData();
-            alert(`✅ יובאו ${inserted} מתנדבים בהצלחה!\n${failed > 0 ? `⚠️ נכשלו ${failed} שורות. בדוק Console לפרטים.` : ''}`);
+            alert(
+                `✅ יובאו ${inserted} מתנדבים בהצלחה!` +
+                (failed > 0 ? `\n⚠️ נכשלו ${failed} שורות. בדוק Console לפרטים.` : '')
+            );
         };
+
         reader.readAsBinaryString(file);
         e.target.value = null;
     };
 
+    // ── UI helpers ────────────────────────────────────────────────────────
+
     const statusLabel = (s) => s === 'available' ? 'פנוי לשיבוץ' : s === 'busy' ? 'לא זמין' : 'בפעילות';
     const statusColor = (s) => s === 'available' ? 'bg-emerald-100 text-emerald-700' : s === 'busy' ? 'bg-red-100 text-red-700' : 'bg-purple-100 text-purple-700';
+
+    // ── RENDER ────────────────────────────────────────────────────────────
 
     return (
         <div className="space-y-5 animate-in fade-in duration-500">
@@ -200,41 +267,30 @@ const Volunteers = () => {
                 <div className="flex items-center gap-2 text-gray-500 font-semibold text-sm">
                     <Filter size={16} className="text-primary" /> סינונים
                 </div>
-                {/* Search */}
                 <div className="relative">
                     <Search size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="שם / טלפון..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="border border-gray-200 rounded-lg pr-9 pl-3 py-1.5 text-sm focus:outline-none focus:border-primary w-44"
-                    />
+                    <input type="text" placeholder="שם / טלפון..." value={search} onChange={e => setSearch(e.target.value)}
+                        className="border border-gray-200 rounded-lg pr-9 pl-3 py-1.5 text-sm focus:outline-none focus:border-primary w-44" />
                 </div>
-                {/* City */}
                 <select value={filterCity} onChange={e => setFilterCity(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary bg-white">
                     <option value="">כל הערים</option>
                     {cities.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                {/* Status */}
                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary bg-white">
                     <option value="">כל הסטטוסים</option>
                     <option value="available">פנוי לשיבוץ</option>
                     <option value="assigned">בפעילות</option>
                     <option value="busy">לא זמין</option>
                 </select>
-                {/* Skill */}
                 <select value={filterSkill} onChange={e => setFilterSkill(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary bg-white">
                     <option value="">כל הכישורים</option>
                     {SKILLS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                {/* Car */}
                 <select value={filterCar} onChange={e => setFilterCar(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary bg-white">
                     <option value="">רכב - הכל</option>
                     <option value="yes">יש רכב</option>
                     <option value="no">אין רכב</option>
                 </select>
-                {/* Gender */}
                 <select value={filterGender} onChange={e => setFilterGender(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary bg-white">
                     <option value="">כל המגדרים</option>
                     <option value="זכר">זכר</option>
@@ -254,13 +310,11 @@ const Volunteers = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {filtered.map((vol) => (
                         <div key={vol.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col gap-3 relative group hover:border-primary/30 hover:shadow-md transition-all">
-                            {/* Action buttons */}
                             <div className="absolute top-4 left-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button onClick={() => { setEditingVol(vol); setIsModalOpen(true); }} className="p-1.5 text-gray-400 hover:text-primary bg-gray-50 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 size={15} /></button>
                                 <button onClick={() => handleDelete(vol.id)} className="p-1.5 text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={15} /></button>
                             </div>
 
-                            {/* Name + Status */}
                             <div className="flex items-center gap-3 pt-1">
                                 <div className={`p-2 rounded-full shrink-0 ${vol.status === 'assigned' ? 'bg-purple-100' : vol.status === 'busy' ? 'bg-red-100' : 'bg-blue-100'}`}>
                                     <Users className={vol.status === 'assigned' ? 'text-purple-600' : vol.status === 'busy' ? 'text-red-500' : 'text-blue-600'} size={20} />
@@ -271,25 +325,20 @@ const Volunteers = () => {
                                         {vol.age && <span className="text-sm font-normal text-gray-400 mr-1">({vol.age})</span>}
                                     </h3>
                                     <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                                        <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor(vol.status)}`}>
-                                            {statusLabel(vol.status)}
-                                        </span>
+                                        <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor(vol.status)}`}>{statusLabel(vol.status)}</span>
                                         {vol.gender && <span className="text-xs text-gray-400">{vol.gender}</span>}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Details */}
                             <div className="space-y-1.5 text-sm text-gray-600">
                                 <div className="flex items-center gap-2"><Phone size={14} className="text-gray-400 shrink-0" /><span dir="ltr">{vol.phone}</span></div>
                                 <div className="flex items-center gap-2"><MapPin size={14} className="text-gray-400 shrink-0" /><span className="truncate">{[vol.address, vol.city].filter(Boolean).join(', ')}</span></div>
                                 <div className="flex items-center gap-2"><Car size={14} className="text-gray-400 shrink-0" /><span>{vol.has_car ? '✓ יש רכב' : 'ללא רכב'}</span></div>
                             </div>
 
-                            {/* Notes */}
                             {vol.notes && <p className="text-xs text-gray-400 italic line-clamp-1 border-t border-gray-50 pt-1">"{vol.notes}"</p>}
 
-                            {/* Skills */}
                             {vol.skills && vol.skills.length > 0 && (
                                 <div className="flex flex-wrap gap-1 border-t border-gray-50 pt-2">
                                     {vol.skills.slice(0, 3).map(s => <span key={s} className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-md">{s}</span>)}
