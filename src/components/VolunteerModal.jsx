@@ -77,7 +77,7 @@ const VolunteerModal = ({ isOpen, onClose, volunteer, onSave }) => {
                                     </div>
                                     <div>
                                         <label className={lbl}>מספר משתתפים</label>
-                                        <input required type="number" min="2" value={formData.group_size || 2} onChange={e => setFormData({ ...formData, group_size: parseInt(e.target.value) })} className={inp} />
+                                        <input required type="number" min="2" value={formData.group_size || ''} onChange={e => setFormData({ ...formData, group_size: e.target.value === '' ? '' : parseInt(e.target.value) })} className={inp} />
                                     </div>
                                     <div>
                                         <label className={lbl}>איש קשר</label>
@@ -111,7 +111,7 @@ const VolunteerModal = ({ isOpen, onClose, volunteer, onSave }) => {
                                     </div>
                                     <div>
                                         <label className={lbl}>גיל</label>
-                                        <input type="number" value={formData.age || ''} onChange={e => setFormData({ ...formData, age: e.target.value })} className={inp} />
+                                        <input type="number" value={formData.age || ''} onChange={e => setFormData({ ...formData, age: e.target.value === '' ? '' : parseInt(e.target.value) })} className={inp} />
                                     </div>
                                     <div>
                                         <label className={lbl}>מגדר</label>

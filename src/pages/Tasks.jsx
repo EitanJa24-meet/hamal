@@ -185,7 +185,17 @@ const Tasks = () => {
         }
         const allowedFields = ['name', 'type', 'description', 'address', 'city', 'lat', 'lng', 'urgency', 'volunteers_needed', 'status', 'requester_name', 'requester_phone', 'time_type', 'due_date', 'start_date', 'end_date', 'notes'];
         const clean = {};
-        allowedFields.forEach(f => { if (data[f] !== undefined) clean[f] = data[f]; });
+        allowedFields.forEach(f => {
+            if (data[f] !== undefined) {
+                if (f === 'volunteers_needed' && (data[f] === '' || data[f] === null)) {
+                    clean[f] = 1;
+                } else if (f === 'volunteers_needed') {
+                    clean[f] = parseInt(data[f]);
+                } else {
+                    clean[f] = data[f];
+                }
+            }
+        });
         clean.lat = lat; clean.lng = lng;
 
         if (data.id) {

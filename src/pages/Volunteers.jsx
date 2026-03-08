@@ -111,7 +111,18 @@ const Volunteers = () => {
             'has_car', 'gender', 'skills', 'notes', 'status', 'volunteer_type',
             'group_name', 'org_name', 'group_size', 'contact_person', 'contact_phone'];
         const clean = {};
-        allowedFields.forEach(f => { if (data[f] !== undefined) clean[f] = data[f]; });
+        allowedFields.forEach(f => {
+            if (data[f] !== undefined) {
+                // Fix: Ensure integer fields are numbers, not empty strings
+                if ((f === 'age' || f === 'group_size') && (data[f] === '' || data[f] === null)) {
+                    clean[f] = null;
+                } else if (f === 'age' || f === 'group_size') {
+                    clean[f] = parseInt(data[f]);
+                } else {
+                    clean[f] = data[f];
+                }
+            }
+        });
         clean.lat = lat; clean.lng = lng;
 
         if (data.id) {
