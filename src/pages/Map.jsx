@@ -3,7 +3,8 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../supabaseClient';
-import { Filter, Car, Phone, MapPin, Users, Hammer, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Filter, Car, Phone, MapPin, Users, Hammer, AlertCircle, ExternalLink, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 // ─── FIX: Leaflet default icon broken by Vite ───────────────────────────────
 import markerIconPng from 'leaflet/dist/images/marker-icon.png';
@@ -43,7 +44,6 @@ const taskIconFn = (urgency) => {
     return makeIcon(colors[urgency] || '#3b82f6', '📍');
 };
 
-// Fit map bounds to markers
 const FitBounds = ({ volunteers, tasks }) => {
     const map = useMap();
     useEffect(() => {
@@ -59,18 +59,17 @@ const FitBounds = ({ volunteers, tasks }) => {
 };
 
 const MapView = () => {
+    const navigate = useNavigate();
     const [volunteers, setVolunteers] = useState([]);
     const [tasks, setTasks] = useState([]);
     const [showVols, setShowVols] = useState(true);
     const [showTasks, setShowTasks] = useState(true);
 
-    // Vol Filters
+    // Filters
     const [volCity, setVolCity] = useState('');
     const [volStatus, setVolStatus] = useState('');
     const [volType, setVolType] = useState('');
     const [volCar, setVolCar] = useState(false);
-
-    // Task Filters
     const [taskCity, setTaskCity] = useState('');
     const [taskStatus, setTaskStatus] = useState('');
     const [taskUrgency, setTaskUrgency] = useState('');
@@ -89,23 +88,16 @@ const MapView = () => {
     const taskCities = useMemo(() => [...new Set(tasks.map(t => t.city).filter(Boolean))].sort(), [tasks]);
 
     // Apply jitter to markers that are on top of each other
-    // We do this by creating a map of shared coordinates
     const jitteredVols = useMemo(() => {
         const coordsMap = {};
         return volunteers.map(v => {
             const key = `${v.lat.toFixed(4)},${v.lng.toFixed(4)}`;
             const count = coordsMap[key] || 0;
             coordsMap[key] = count + 1;
-
             if (count > 0) {
-                // Spherical jitter
-                const angle = (count * 137.5) * (Math.PI / 180); // Golden angle
+                const angle = (count * 137.5) * (Math.PI / 180);
                 const radius = 0.0005 * Math.sqrt(count);
-                return {
-                    ...v,
-                    lat: v.lat + radius * Math.cos(angle),
-                    lng: v.lng + radius * Math.sin(angle)
-                };
+                return { ...v, lat: v.lat + radius * Math.cos(angle), lng: v.lng + radius * Math.sin(angle) };
             }
             return v;
         });
@@ -117,15 +109,10 @@ const MapView = () => {
             const key = `${t.lat.toFixed(4)},${t.lng.toFixed(4)}`;
             const count = coordsMap[key] || 0;
             coordsMap[key] = count + 1;
-
             if (count > 0) {
                 const angle = (count * 137.5) * (Math.PI / 180);
                 const radius = 0.0006 * Math.sqrt(count);
-                return {
-                    ...t,
-                    lat: t.lat + radius * Math.cos(angle),
-                    lng: t.lng + radius * Math.sin(angle)
-                };
+                return { ...t, lat: t.lat + radius * Math.cos(angle), lng: t.lng + radius * Math.sin(angle) };
             }
             return t;
         });
@@ -161,9 +148,8 @@ const MapView = () => {
 
     return (
         <div className="flex flex-col lg:flex-row h-full gap-4 animate-in fade-in duration-500" style={{ minHeight: '82vh' }}>
-
             {/* Sidebar Filters */}
-            <div className="w-full lg:w-80 flex flex-col gap-4 shrink-0">
+            <div className="w-full lg:w-80 flex flex-col gap-4 shrink-0 overflow-y-auto max-h-[82vh] pr-1">
                 <div className="bg-white rounded-2xl border border-primary/20 p-5 shadow-sm space-y-1">
                     <h2 className="text-2xl font-black text-gray-900 tracking-tight">שליטה ומפה</h2>
                     <p className="text-xs text-gray-500 font-bold">מציג נתוני שטח בזמן אמת</p>
@@ -189,7 +175,7 @@ const MapView = () => {
                         <option value="completed">הושלמה</option>
                     </select>
                     <button onClick={() => setShowTasks(!showTasks)} className={`w-full py-2 rounded-lg text-xs font-black border transition-all ${showTasks ? 'bg-red-50 text-red-600 border-red-200' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
-                        {showTasks ? 'הצג משימות' : 'הסתר משימות'}
+                        {showTasks ? 'הסתר משימות' : 'הצג משימות'}
                     </button>
                 </FilterBox>
 
@@ -210,7 +196,7 @@ const MapView = () => {
                         <option value="busy">לא זמין</option>
                     </select>
                     <button onClick={() => setShowVols(!showVols)} className={`w-full py-2 rounded-lg text-xs font-black border transition-all ${showVols ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
-                        {showVols ? 'הצג מתנדבים' : 'הסתר מתנדבים'}
+                        {showVols ? 'הסתר מתנדבים' : 'הצג מתנדבים'}
                     </button>
                     <label className="col-span-2 flex items-center justify-center gap-2 p-2 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
                         <input type="checkbox" checked={volCar} onChange={e => setVolCar(e.target.checked)} className="rounded text-primary" />
@@ -218,7 +204,7 @@ const MapView = () => {
                     </label>
                 </FilterBox>
 
-                <div className="mt-auto bg-gray-900 rounded-2xl p-5 text-white">
+                <div className="bg-gray-900 rounded-2xl p-5 text-white">
                     <div className="flex justify-between items-center mb-4">
                         <span className="text-xs font-bold text-gray-400">סטטיסטיקת מפה</span>
                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -246,19 +232,24 @@ const MapView = () => {
                     {showTasks && filteredTasks.map(t => (
                         <Marker key={t.id} position={[t.lat, t.lng]} icon={taskIconFn(t.urgency)}>
                             <Popup>
-                                <div className="text-right p-1 min-w-[200px]" dir="rtl">
+                                <div className="text-right p-1 min-w-[220px]" dir="rtl">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center"><AlertCircle size={18} /></div>
-                                        <div>
-                                            <h3 className="font-black text-sm text-gray-900">{t.name}</h3>
+                                        <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center shrink-0"><AlertCircle size={18} /></div>
+                                        <div className="min-w-0">
+                                            <h3 className="font-black text-sm text-gray-900 truncate">{t.name}</h3>
                                             <p className="text-[10px] text-gray-500 font-bold">{t.type}</p>
                                         </div>
                                     </div>
-                                    <div className="space-y-1 text-xs text-gray-600 mb-3">
+                                    <div className="space-y-1 text-xs text-gray-600 mb-4 border-b border-gray-50 pb-2">
                                         <div className="flex items-center gap-1.5"><MapPin size={12} className="text-gray-400" /> {t.address}, {t.city}</div>
                                         <div className="flex items-center gap-1.5"><Hammer size={12} className="text-gray-400" /> דחיפות: {t.urgency}</div>
                                     </div>
-                                    <div className={`text-[10px] font-bold px-2 py-1 rounded-full inline-block ${t.status === 'open' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}> {t.status === 'open' ? 'פתוחה לרישום' : 'בטיפול'} </div>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className={`text-[10px] font-bold px-2 py-1 rounded-full ${t.status === 'open' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}> {t.status === 'open' ? 'פתוחה' : 'בטיפול'} </div>
+                                        <button onClick={() => navigate(`/tasks?id=${t.id}`)} className="flex items-center gap-1 text-[10px] font-black text-primary hover:underline">
+                                            מעבר לניהול משימה <ExternalLink size={10} />
+                                        </button>
+                                    </div>
                                 </div>
                             </Popup>
                         </Marker>
@@ -268,22 +259,26 @@ const MapView = () => {
                     {showVols && filteredVols.map(v => (
                         <Marker key={v.id} position={[v.lat, v.lng]} icon={v.volunteer_type === 'group' ? groupIcon : volIcon}>
                             <Popup>
-                                <div className="text-right p-1 min-w-[200px]" dir="rtl">
+                                <div className="text-right p-1 min-w-[220px]" dir="rtl">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${v.volunteer_type === 'group' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                                            {v.volunteer_type === 'group' ? <Users size={18} /> : <Users size={18} />}
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${v.volunteer_type === 'group' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
+                                            <Users size={18} />
                                         </div>
-                                        <div>
-                                            <h3 className="font-black text-sm text-gray-900">{v.volunteer_type === 'group' ? v.group_name : v.full_name}</h3>
+                                        <div className="min-w-0">
+                                            <h3 className="font-black text-sm text-gray-900 truncate">{v.volunteer_type === 'group' ? v.group_name : v.full_name}</h3>
                                             <p className="text-[10px] text-gray-500 font-bold">{v.volunteer_type === 'group' ? `קבוצה (${v.group_size} איש)` : `מתנדב יחיד (גיל ${v.age || '?'})`}</p>
                                         </div>
                                     </div>
-                                    <div className="space-y-1 text-xs text-gray-600 mb-3">
+                                    <div className="space-y-1 text-xs text-gray-600 mb-4 border-b border-gray-50 pb-2">
                                         <div className="flex items-center gap-1.5"><Phone size={12} className="text-gray-400" /> <span dir="ltr">{v.volunteer_type === 'group' ? v.contact_phone : v.phone}</span></div>
                                         <div className="flex items-center gap-1.5"><MapPin size={12} className="text-gray-400" /> {v.city}</div>
-                                        {v.has_car && <div className="flex items-center gap-1.5 text-emerald-600 font-bold"><Car size={12} /> בעל רכב</div>}
                                     </div>
-                                    <div className={`text-[10px] font-bold px-2 py-1 rounded-full inline-block ${v.status === 'available' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}> {v.status === 'available' ? 'פנוי לשיבוץ' : 'בפעילות'} </div>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className={`text-[10px] font-bold px-2 py-1 rounded-full ${v.status === 'available' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}> {v.status === 'available' ? 'פנוי' : 'בפעילות'} </div>
+                                        <button onClick={() => navigate(`/volunteers?id=${v.id}`)} className="flex items-center gap-1 text-[10px] font-black text-primary hover:underline">
+                                            מעבר לכרטיס מתנדב <ExternalLink size={10} />
+                                        </button>
+                                    </div>
                                 </div>
                             </Popup>
                         </Marker>
