@@ -1,119 +1,214 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../supabaseClient';
-import { Users, ClipboardList, MapPin, Filter, Car, Phone } from 'lucide-react';
+import { Filter, Car, Phone, MapPin } from 'lucide-react';
 
-const createCustomIcon = (color, IconComp) => {
-    const htmlString = `<div style="background-color: white; border: 2px solid ${color}; padding: 4px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; width: 32px; height: 32px;"><div style="color: ${color};"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IconComp}</svg></div></div>`;
-    return L.divIcon({
-        className: 'custom-icon',
-        html: htmlString,
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -32]
-    });
+// ─── FIX: Leaflet default icon broken by Vite's asset processing ─────────────
+import markerIconPng from 'leaflet/dist/images/marker-icon.png';
+import markerIcon2xPng from 'leaflet/dist/images/marker-icon-2x.png';
+import markerShadowPng from 'leaflet/dist/images/marker-shadow.png';
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconUrl: markerIconPng,
+    iconRetinaUrl: markerIcon2xPng,
+    shadowUrl: markerShadowPng,
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Custom colored circle icons
+const makeIcon = (color, label) => L.divIcon({
+    className: '',
+    html: `<div style="
+        background:${color};
+        border: 2.5px solid white;
+        border-radius: 50%;
+        width: 28px; height: 28px;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+        font-size: 14px;
+    ">${label}</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -16],
+});
+
+const volIcon = makeIcon('#7e9ceb', '👤');
+const taskIconFn = (urgency) => {
+    const colors = { emergency: '#e88b8b', high: '#f4a261', medium: '#f4d160', low: '#a8d8a8' };
+    return makeIcon(colors[urgency] || '#e88b8b', '📋');
 };
 
-const userHtml = `<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>`;
-const clipboardHtml = `<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>`;
-
-const volIcon = createCustomIcon('#7e9ceb', userHtml);
-const taskIcon = createCustomIcon('#e88b8b', clipboardHtml);
+// Fit map bounds to markers
+const FitBounds = ({ volunteers, tasks }) => {
+    const map = useMap();
+    useEffect(() => {
+        const points = [
+            ...volunteers.filter(v => v.lat && v.lng).map(v => [v.lat, v.lng]),
+            ...tasks.filter(t => t.lat && t.lng).map(t => [t.lat, t.lng]),
+        ];
+        if (points.length > 0) {
+            map.fitBounds(points, { padding: [40, 40], maxZoom: 13 });
+        }
+    }, [volunteers, tasks]);
+    return null;
+};
 
 const MapView = () => {
     const [volunteers, setVolunteers] = useState([]);
     const [tasks, setTasks] = useState([]);
-    const [filters, setFilters] = useState({ city: '', status: '' });
+    const [showVols, setShowVols] = useState(true);
+    const [showTasks, setShowTasks] = useState(true);
+    const [filterCity, setFilterCity] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [filterUrgency, setFilterUrgency] = useState('');
+    const [filterCar, setFilterCar] = useState(false);
 
     useEffect(() => {
-        const loadData = async () => {
+        const load = async () => {
             const { data: vData } = await supabase.from('volunteers').select('*').not('lat', 'is', null);
             const { data: tData } = await supabase.from('tasks').select('*').not('lat', 'is', null);
             if (vData) setVolunteers(vData);
             if (tData) setTasks(tData);
         };
-        loadData();
+        load();
     }, []);
 
-    const filteredVols = volunteers.filter(v => (filters.city ? v.city === filters.city : true));
-    const filteredTasks = tasks.filter(t => (filters.status ? t.status === filters.status : true));
+    const cities = [...new Set(volunteers.map(v => v.city).filter(Boolean))].sort();
+
+    const filteredVols = volunteers.filter(v => {
+        if (filterCity && v.city !== filterCity) return false;
+        if (filterStatus && v.status !== filterStatus) return false;
+        if (filterCar && !v.has_car) return false;
+        return true;
+    });
+
+    const filteredTasks = tasks.filter(t => {
+        if (filterStatus && t.status !== filterStatus) return false;
+        if (filterUrgency && t.urgency !== filterUrgency) return false;
+        return true;
+    });
 
     return (
-        <div className="flex flex-col h-full animate-in fade-in duration-500 relative">
+        <div className="flex flex-col h-full animate-in fade-in duration-500" style={{ minHeight: '80vh' }}>
+            {/* Header */}
             <div className="flex justify-between items-center mb-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight text-gray-900">מפת שליטה בזמן אמת</h2>
-                    <p className="text-gray-500 mt-1">צפייה במשימות ובמתנדבים באזור הפעילות</p>
+                    <p className="text-gray-500 mt-1">
+                        <span className="font-medium text-blue-600">{filteredVols.length} מתנדבים</span>
+                        {' · '}
+                        <span className="font-medium text-red-500">{filteredTasks.length} משימות</span>
+                    </p>
                 </div>
             </div>
 
-            <div className="flex items-center gap-4 bg-white p-3 rounded-2xl shadow-sm border border-gray-100 mb-4 h-16 shrink-0">
-                <div className="flex items-center gap-2 px-3 border-l border-gray-200 text-gray-700 font-semibold">
-                    <Filter size={20} className="text-primary" /> סינונים
+            {/* Filter bar */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-4 flex flex-wrap gap-3 items-center">
+                <div className="flex items-center gap-2 text-gray-500 font-semibold text-sm pl-2 border-l border-gray-200">
+                    <Filter size={15} className="text-primary" /> סינון מפה
                 </div>
-                <input
-                    type="text"
-                    placeholder="סינון לפי עיר למתנדבים..."
-                    value={filters.city}
-                    onChange={e => setFilters({ ...filters, city: e.target.value })}
-                    className="border border-gray-200 rounded-lg px-3 py-1.5 focus:ring-primary focus:border-primary outline-none"
-                />
-                <select
-                    value={filters.status}
-                    onChange={e => setFilters({ ...filters, status: e.target.value })}
-                    className="border border-gray-200 rounded-lg px-3 py-1.5 focus:ring-primary focus:border-primary outline-none bg-white"
+
+                {/* Toggle layers */}
+                <button
+                    onClick={() => setShowVols(!showVols)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all ${showVols ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-white text-gray-400 border-gray-200'}`}
                 >
-                    <option value="">כל משימות (סטטוס)</option>
-                    <option value="open">פתוחה</option>
-                    <option value="completed">הושלמה</option>
+                    👤 מתנדבים
+                </button>
+                <button
+                    onClick={() => setShowTasks(!showTasks)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all ${showTasks ? 'bg-red-100 text-red-600 border-red-200' : 'bg-white text-gray-400 border-gray-200'}`}
+                >
+                    📋 משימות
+                </button>
+
+                <div className="w-px h-6 bg-gray-200" />
+
+                {/* City filter */}
+                <select value={filterCity} onChange={e => setFilterCity(e.target.value)}
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary bg-white">
+                    <option value="">כל הערים</option>
+                    {cities.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                <div className="flex gap-4 mr-auto text-sm">
-                    <span className="flex items-center gap-1 font-semibold text-gray-600"><div className="w-3 h-3 rounded-full bg-blue-600"></div> מתנדבים ({filteredVols.length})</span>
-                    <span className="flex items-center gap-1 font-semibold text-gray-600"><div className="w-3 h-3 rounded-full bg-red-600"></div> משימות ({filteredTasks.length})</span>
-                </div>
+
+                {/* Vol status filter */}
+                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary bg-white">
+                    <option value="">כל הסטטוסים</option>
+                    <option value="available">פנוי</option>
+                    <option value="assigned">בפעילות</option>
+                    <option value="busy">לא זמין</option>
+                </select>
+
+                {/* Task urgency filter */}
+                <select value={filterUrgency} onChange={e => setFilterUrgency(e.target.value)}
+                    className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-primary bg-white">
+                    <option value="">כל הדחיפויות</option>
+                    <option value="emergency">🔴 חירום</option>
+                    <option value="high">גבוהה</option>
+                    <option value="medium">בינונית</option>
+                    <option value="low">נמוכה</option>
+                </select>
+
+                {/* Car filter */}
+                <label className="flex items-center gap-1.5 cursor-pointer text-sm text-gray-600 font-medium">
+                    <input type="checkbox" checked={filterCar} onChange={e => setFilterCar(e.target.checked)} className="rounded" />
+                    <Car size={14} /> רק עם רכב
+                </label>
             </div>
 
-            <div className="flex-1 rounded-2xl overflow-hidden shadow-sm border border-gray-100 relative bg-gray-100 min-h-[600px]">
-                <MapContainer center={[32.0853, 34.7817]} zoom={12} style={{ height: '100%', width: '100%' }}>
+            {/* Map */}
+            <div className="flex-1 rounded-2xl overflow-hidden shadow-sm border border-gray-100 bg-gray-100" style={{ minHeight: '520px' }}>
+                <MapContainer
+                    center={[31.5, 34.8]}
+                    zoom={8}
+                    style={{ height: '100%', width: '100%', minHeight: '520px' }}
+                    scrollWheelZoom={true}
+                >
                     <TileLayer
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     />
 
-                    {filteredTasks.map(t => (
-                        <Marker key={t.id} position={[t.lat, t.lng]} icon={taskIcon}>
+                    <FitBounds volunteers={filteredVols} tasks={filteredTasks} />
+
+                    {/* Task markers */}
+                    {showTasks && filteredTasks.map(t => (
+                        <Marker key={t.id} position={[t.lat, t.lng]} icon={taskIconFn(t.urgency)}>
                             <Popup>
-                                <div className="p-1 space-y-2 dir-rtl text-right" dir="rtl">
-                                    <h3 className="font-bold text-lg border-b pb-1 text-red-700">{t.name || t.type}</h3>
-                                    <p className="text-gray-600 text-sm mt-1">{t.description}</p>
-                                    <div className="flex gap-2 text-xs mt-2">
-                                        <span className="bg-red-100 text-red-800 px-2 py-0.5 rounded-md">{t.urgency}</span>
-                                        <span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded-md">{t.status}</span>
+                                <div className="text-right min-w-[180px]" dir="rtl">
+                                    <h3 className="font-bold text-base mb-1">{t.name || t.type}</h3>
+                                    {t.description && <p className="text-gray-500 text-sm mb-2">{t.description}</p>}
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                        <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-md font-semibold">{t.urgency}</span>
+                                        <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-md">{t.status}</span>
                                     </div>
-                                    <button className="bg-primary hover:bg-blue-700 text-white w-full py-1.5 rounded-xl font-bold mt-2 shadow-sm">
-                                        שבץ מתנדבים מהיר
-                                    </button>
+                                    <div className="text-sm text-gray-600 flex items-center gap-1"><MapPin size={12} /> {t.address}, {t.city}</div>
                                 </div>
                             </Popup>
                         </Marker>
                     ))}
 
-                    {filteredVols.map(v => (
+                    {/* Volunteer markers */}
+                    {showVols && filteredVols.map(v => (
                         <Marker key={v.id} position={[v.lat, v.lng]} icon={volIcon}>
                             <Popup>
-                                <div className="p-1 space-y-2 text-right" dir="rtl">
-                                    <h3 className="font-bold text-lg border-b pb-1 text-blue-700 flex items-center gap-2">
-                                        {v.full_name}
-                                    </h3>
-                                    <div className="flex flex-col gap-1 text-sm mt-2 text-gray-700">
-                                        <span className="flex items-center gap-2"><Phone size={14} /> {v.phone}</span>
-                                        <span className="flex items-center gap-2"><MapPin size={14} /> {v.address}, {v.city}</span>
-                                        <span className="flex items-center gap-2"><Car size={14} /> {v.has_car ? 'יש רכב' : 'אין רכב'}</span>
+                                <div className="text-right min-w-[180px]" dir="rtl">
+                                    <h3 className="font-bold text-base mb-1">{v.full_name} {v.age && `(${v.age})`}</h3>
+                                    <div className="text-sm text-gray-600 space-y-1">
+                                        <div className="flex items-center gap-1"><Phone size={12} /> <span dir="ltr">{v.phone}</span></div>
+                                        <div className="flex items-center gap-1"><MapPin size={12} /> {v.address}, {v.city}</div>
+                                        <div className="flex items-center gap-1"><Car size={12} /> {v.has_car ? '✓ יש רכב' : 'ללא רכב'}</div>
                                     </div>
-                                    <div className="flex flex-wrap gap-1 mt-2">
-                                        {(v.skills || []).map(s => <span key={s} className="bg-gray-100 text-xs px-2 py-0.5 rounded border border-gray-200">{s}</span>)}
+                                    {v.skills && v.skills.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-2">
+                                            {v.skills.map(s => <span key={s} className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-md">{s}</span>)}
+                                        </div>
+                                    )}
+                                    <div className={`mt-2 text-xs font-semibold px-2 py-0.5 rounded-full inline-block ${v.status === 'available' ? 'bg-emerald-100 text-emerald-700' : v.status === 'busy' ? 'bg-red-100 text-red-600' : 'bg-purple-100 text-purple-700'}`}>
+                                        {v.status === 'available' ? 'פנוי לשיבוץ' : v.status === 'busy' ? 'לא זמין' : 'בפעילות'}
                                     </div>
                                 </div>
                             </Popup>
