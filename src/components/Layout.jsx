@@ -11,9 +11,10 @@ const Layout = () => {
 
     const handleEmergencySave = async (data) => {
         const loc = await geocodeAddress(data.address, data.city);
-        const { error } = await supabase.from('tasks').insert([{ ...data, lat: loc.lat, lng: loc.lng }]);
+        const { error } = await supabase.from('tasks').insert([{ ...data, lat: loc.lat, lng: loc.lng, status: 'open' }]);
         setIsEmergencyOpen(false);
         if (!error) alert("אירוע חירום נפתח בהצלחה והוזן במפה!");
+        else alert("שגיאה בפתיחת אירוע חירום: " + error.message);
     };
 
     const navItems = [

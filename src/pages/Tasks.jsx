@@ -101,11 +101,19 @@ const Tasks = () => {
     const loadData = async () => {
         setIsLoading(true);
         try {
-            const [t, v, a] = await Promise.all([fetchTable('tasks'), fetchTable('volunteers'), fetchTable('assignments')]);
+            const [t, v, a] = await Promise.all([
+                fetchTable('tasks').catch(err => { alert('שגיאה בטעינת משימות: ' + err.message); return []; }),
+                fetchTable('volunteers').catch(() => []),
+                fetchTable('assignments').catch(() => [])
+            ]);
+            console.log(`Loaded ${t.length} tasks, ${v.length} volunteers`);
             setTasks(t || []);
             setAllVolunteers(v || []);
             setAssignments(a || []);
-        } catch (e) { console.error("Error loading data:", e); }
+        } catch (e) {
+            console.error("Error loading data:", e);
+            alert("שגיאה בחיבור לבסיס הנתונים. אנא רענני את הדף.");
+        }
         setIsLoading(false);
     };
 
@@ -118,18 +126,37 @@ const Tasks = () => {
     }, [tasks]);
 
     const filtered = useMemo(() => {
-        return (tasks || []).filter(t => {
-            // Fix: Check boolean value explicitly to handle null as false
-            if (!!t.is_archived !== !!showArchived) return false;
+        const result = (tasks || []).filter(t => {
+            // Match archived status
+            const taskArchived = !!t.is_archived;
+            if (taskArchived !== !!showArchived) return false;
 
-            // If we have a targeted search or filters, apply them
+            // Search by name
             if (search && !t.name?.toLowerCase().includes(search.toLowerCase())) return false;
+
+            // Urgency
             if (filterUrgency && t.urgency !== filterUrgency) return false;
-            if (filterStatus && t.status !== filterStatus) return false;
+
+            // Status (Case insensitive and handles both 'open' and 'פתוחה')
+            if (filterStatus) {
+                const s = t.status?.toLowerCase() || '';
+                const f = filterStatus.toLowerCase();
+                if (f === 'open') {
+                    if (s !== 'open' && s !== 'פתוחה') return false;
+                } else if (f === 'completed') {
+                    if (s !== 'completed' && s !== 'הושלמה') return false;
+                } else if (f === 'assigning') {
+                    if (s !== 'assigning' && s !== 'בשיבוץ') return false;
+                } else if (s !== f) return false;
+            }
+
+            // City
             if (filterCity && t.city !== filterCity) return false;
 
             return true;
         });
+        console.log(`Filtered: ${result.length}/${tasks.length} tasks visible`);
+        return result;
     }, [tasks, search, filterUrgency, filterStatus, filterCity, showArchived]);
 
     const handleAssign = async (volunteer, task) => {
@@ -199,10 +226,20 @@ const Tasks = () => {
 
         if (data.id) {
             const { error } = await supabase.from('tasks').update(clean).eq('id', data.id);
-            if (!error) setTasks(tasks.map(t => t.id === data.id ? { ...t, ...clean } : t));
+            if (!error) {
+                setTasks(tasks.map(t => t.id === data.id ? { ...t, ...clean } : t));
+                alert("המשימה עודכנה בהצלחה");
+            } else {
+                alert("שגיאה בעדכון: " + error.message);
+            }
         } else {
             const { data: inserted, error } = await supabase.from('tasks').insert([clean]).select();
-            if (inserted) setTasks([inserted[0], ...tasks]);
+            if (inserted) {
+                setTasks([inserted[0], ...tasks]);
+                alert("המשימה נוספה בהצלחה!");
+            } else {
+                alert("שגיאה בהוספה: " + (error?.message || "משהו השתבש"));
+            }
         }
         setIsModalOpen(false);
     };
