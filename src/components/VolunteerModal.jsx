@@ -5,7 +5,7 @@ const checkBoxes = ['בייביסיטר', 'עזרה לקשישים', 'ניקיו
 
 const VolunteerModal = ({ isOpen, onClose, volunteer, onSave }) => {
     const defaultState = {
-        full_name: '', phone: '', age: '', address: '', city: '', has_car: false, skills: [], status: 'available'
+        full_name: '', phone: '', age: '', address: '', city: '', has_car: false, skills: [], status: 'available', gender: '', notes: ''
     };
     const [formData, setFormData] = useState(defaultState);
 
@@ -61,10 +61,6 @@ const VolunteerModal = ({ isOpen, onClose, volunteer, onSave }) => {
                                     <option value="זכר">זכר</option>
                                     <option value="נקבה">נקבה</option>
                                 </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-bold mb-1">בית ספר</label>
-                                <input type="text" value={formData.school || ''} onChange={e => setFormData({ ...formData, school: e.target.value })} className="w-full border p-2 rounded-lg focus:ring-primary outline-none" />
                             </div>
                         </div>
                         <div>

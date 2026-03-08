@@ -91,7 +91,6 @@ const Volunteers = () => {
                     age: parseInt(getVal(['בן כמה אני', 'גיל'])) || null,
                     city: getVal(['עיר מגורים', 'עיר', 'ישוב', 'יישוב']) || 'תל אביב',
                     address: getVal(['כתובת']) || '',
-                    school: getVal(['בית ספר']),
                     gender: getVal(['מגדר']),
                     has_car: String(getVal(['רכב', 'has_car'])).toLowerCase() === 'true' || getVal(['רכב']) === 'כן',
                     notes: mergedNotes,
@@ -171,10 +170,9 @@ const Volunteers = () => {
                                 <Car size={16} className="text-gray-400" />
                                 <span>{vol.has_car ? 'נייד עם רכב' : 'ללא רכב ממנוע'}</span>
                             </div>
-                            {(vol.school || vol.gender) && (
+                            {vol.gender && (
                                 <div className="flex items-center gap-2 text-primary/70 text-xs font-bold">
-                                    {vol.school && <span>• {vol.school}</span>}
-                                    {vol.gender && <span>• {vol.gender}</span>}
+                                    <span>• {vol.gender}</span>
                                 </div>
                             )}
                             {vol.notes && (
