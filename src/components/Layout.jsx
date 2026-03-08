@@ -74,7 +74,7 @@ const Layout = () => {
             <TaskModal
                 isOpen={isEmergencyOpen}
                 onClose={() => setIsEmergencyOpen(false)}
-                task={{ name: 'אירוע חירום דחוף!', type: 'עזרה כללית', description: '', address: '', city: '', urgency: 'high', volunteers_needed: 1, status: 'open', general_help: false }}
+                task={{ name: 'אירוע חירום דחוף!', type: 'עזרה כללית', description: '', address: '', city: '', urgency: 'emergency', volunteers_needed: 1, status: 'open', general_help: false }}
                 onSave={handleEmergencySave}
             />
         </div>

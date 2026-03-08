@@ -34,7 +34,7 @@ const Dashboard = () => {
             const vols = await supabase.from('volunteers').select('*', { count: 'exact', head: true }).eq('status', 'available');
             const openT = await supabase.from('tasks').select('*', { count: 'exact', head: true }).in('status', ['פתוחה', 'open']);
             const compT = await supabase.from('tasks').select('*', { count: 'exact', head: true }).in('status', ['הושלמה', 'completed']);
-            const actE = await supabase.from('emergencies').select('*', { count: 'exact', head: true }).eq('status', 'active');
+            const actE = await supabase.from('tasks').select('*', { count: 'exact', head: true }).eq('urgency', 'emergency');
 
             setStats({
                 volunteers_available: vols.count || 0,
@@ -43,20 +43,27 @@ const Dashboard = () => {
                 emergencies_active: actE.count || 0
             });
 
-            const { data: allTasks } = await supabase.from('tasks').select('type, location');
+            const { data: allTasks } = await supabase.from('tasks').select('type, city');
             if (allTasks) {
                 const typeCounts = {};
                 const cityCounts = {};
+                const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+
                 allTasks.forEach(t => {
                     typeCounts[t.type] = (typeCounts[t.type] || 0) + 1;
-                    if (t.location) {
-                        const city = t.location.split(',')[0].trim();
-                        cityCounts[city] = (cityCounts[city] || 0) + 1;
+                    if (t.city) {
+                        cityCounts[t.city] = (cityCounts[t.city] || 0) + 1;
                     }
                 });
                 setCharts({
-                    byType: Object.keys(typeCounts).map(type => ({ name: type, value: typeCounts[type], color: '#7e9ceb' })),
-                    byCity: Object.keys(cityCounts).map(city => ({ city, count: cityCounts[city] }))
+                    byType: Object.keys(typeCounts).map((type, idx) => ({
+                        name: type || 'אחר',
+                        value: typeCounts[type],
+                        color: CHART_COLORS[idx % CHART_COLORS.length]
+                    })),
+                    byCity: Object.keys(cityCounts).map(city => ({ city: city || 'לא ידוע', count: cityCounts[city] }))
+                        .sort((a, b) => b.count - a.count)
+                        .slice(0, 10)
                 });
             }
         };
@@ -136,12 +143,12 @@ const Dashboard = () => {
 
                 {/* Bar Chart */}
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-6">משימות לפי עיר</h3>
+                    <h3 className="text-lg font-black text-gray-800 mb-6">משימות לפי עיר (טופ 10)</h3>
                     <div className="h-64 w-full" dir="ltr">
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={charts.byCity}
                                 layout="vertical"
-                                margin={{ top: 0, right: 0, left: 40, bottom: 0 }}
+                                margin={{ top: 0, right: 30, left: 60, bottom: 0 }}
                             >
                                 <XAxis type="number" hide />
                                 <YAxis dataKey="city" type="category" axisLine={false} tickLine={false} />
