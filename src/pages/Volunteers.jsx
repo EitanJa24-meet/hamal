@@ -86,6 +86,12 @@ const Volunteers = () => {
             const bstr = evt.target.result;
             const wb = XLSX.read(bstr, { type: 'binary' });
             const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+
+            if (data.length === 0) {
+                alert('הקובץ ריק או שהפורמט אינו נתמך.');
+                return;
+            }
+
             const mappedData = data.map(row => {
                 const getVal = (keys) => {
                     for (const key of Object.keys(row)) {
@@ -94,33 +100,56 @@ const Volunteers = () => {
                     }
                     return null;
                 };
-                const phoneStr = getVal(['טלפון נייד', 'טלפון', 'נייד']) || '';
+                const phoneRaw = getVal(['טלפון נייד', 'טלפון', 'נייד']);
+                const phoneStr = phoneRaw != null ? String(phoneRaw).trim() : '';
                 const notesVal = getVal(['הערות', 'שאלות']) || '';
                 const parentPhone = getVal(['טלפון של הורה']);
+                const ageRaw = getVal(['בן כמה אני', 'גיל']);
+                const genderRaw = getVal(['מגדר']);
+
                 return {
                     full_name: getVal(['שם מלא', 'שם', 'שחקן']) || 'ללא שם',
-                    phone: phoneStr.toString().trim(),
-                    age: parseInt(getVal(['בן כמה אני', 'גיל'])) || null,
+                    phone: phoneStr,
+                    age: ageRaw ? (parseInt(ageRaw) || null) : null,
                     city: getVal(['עיר מגורים', 'עיר', 'ישוב', 'יישוב']) || 'תל אביב',
                     address: getVal(['כתובת']) || '',
-                    gender: getVal(['מגדר']),
-                    has_car: String(getVal(['רכב', 'has_car'])).toLowerCase() === 'true' || getVal(['רכב']) === 'כן',
+                    gender: genderRaw ? String(genderRaw).trim() : null,
+                    has_car: String(getVal(['רכב', 'has_car']) || '').toLowerCase() === 'true' || getVal(['רכב']) === 'כן',
                     notes: parentPhone ? `טלפון הורה: ${parentPhone}. ${notesVal}` : notesVal,
                     status: 'available',
-                    skills: []
+                    skills: [],
                 };
             });
-            if (mappedData.length > 0) {
-                alert(`מתחיל ביבוא ${mappedData.length} מתנדבים. נא לחכות...`);
-                for (let i = 0; i < mappedData.length; i++) {
-                    const loc = await geocodeAddress('', mappedData[i].city, true);
-                    mappedData[i].lat = loc.lat;
-                    mappedData[i].lng = loc.lng;
-                }
-                await supabase.from('volunteers').insert(mappedData);
-                loadData();
-                alert(`יובאו ${mappedData.length} מתנדבים בהצלחה!`);
+
+            // Filter out rows with no name
+            const validData = mappedData.filter(r => r.full_name && r.full_name !== 'ללא שם');
+
+            alert(`נמצאו ${validData.length} שורות תקינות מתוך ${data.length}. מתחיל ייבוא עם גיאוקודינג...`);
+
+            // Geocode by city (cached, bulk mode)
+            for (let i = 0; i < validData.length; i++) {
+                const loc = await geocodeAddress('', validData[i].city, true);
+                validData[i].lat = loc.lat;
+                validData[i].lng = loc.lng;
             }
+
+            // Insert in chunks of 50 to avoid Supabase row limit per request
+            const CHUNK = 50;
+            let inserted = 0;
+            let failed = 0;
+            for (let i = 0; i < validData.length; i += CHUNK) {
+                const chunk = validData.slice(i, i + CHUNK);
+                const { error } = await supabase.from('volunteers').insert(chunk);
+                if (error) {
+                    console.error('Insert error for chunk', i, error);
+                    failed += chunk.length;
+                } else {
+                    inserted += chunk.length;
+                }
+            }
+
+            loadData();
+            alert(`✅ יובאו ${inserted} מתנדבים בהצלחה!\n${failed > 0 ? `⚠️ נכשלו ${failed} שורות. בדוק Console לפרטים.` : ''}`);
         };
         reader.readAsBinaryString(file);
         e.target.value = null;
