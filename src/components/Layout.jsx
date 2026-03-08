@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Map, Users, ClipboardList, AlertTriangle, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Map, Users, ClipboardList, AlertTriangle, Shield } from 'lucide-react';
 import TaskModal from './TaskModal';
 import { supabase } from '../supabaseClient';
 import { geocodeAddress } from '../utils/geocode';
@@ -24,16 +24,17 @@ const Layout = () => {
     ];
 
     return (
-        <div className="flex h-screen w-full bg-white overflow-hidden">
+        <div className="flex h-screen w-full bg-surface overflow-hidden">
             {/* Right Sidebar */}
-            <aside className="w-64 bg-white shadow-xl flex flex-col z-20 shrink-0 border-l border-gray-100">
+            <aside className="w-64 bg-white shadow-xl flex flex-col z-20 shrink-0">
                 <div className="bg-primary text-white p-6 flex flex-col items-center justify-center relative overflow-hidden">
+                    {/* Header Graphic */}
                     <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white to-transparent"></div>
-                    <div className="flex flex-col items-center justify-center gap-2 z-10 w-full">
-                        <img src="/logo.png" alt="Logo" className="h-14 w-auto bg-white/10 rounded-lg p-1" />
+                    <div className="flex flex-col items-center gap-2 z-10 w-full justify-center">
+                        <img src="/logo.png" alt="Logo" className="h-12 w-auto bg-white/20 rounded-md p-0.5" />
                         <div className="text-center">
-                            <h1 className="text-lg font-bold tracking-tight">דרך פרת</h1>
-                            <p className="text-xs opacity-80 font-medium">מרכז שליטה</p>
+                            <h1 className="text-lg font-bold tracking-tight">מרכז שליטה</h1>
+                            <p className="text-xs opacity-80 font-medium">דרך פרת</p>
                         </div>
                     </div>
                 </div>
@@ -57,16 +58,16 @@ const Layout = () => {
                     })}
 
                     <div className="pt-4 mt-4 border-t border-gray-100">
-                        <button onClick={() => setIsEmergencyOpen(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-red-500 bg-red-50/50 hover:bg-red-50 hover:scale-[1.01] group border border-red-100/50">
+                        <button onClick={() => setIsEmergencyOpen(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-alert hover:bg-red-50 hover:scale-[1.01] group">
                             <AlertTriangle size={20} className="opacity-80 group-hover:opacity-100" />
-                            <span className="font-semibold text-alert">חירום מהיר</span>
+                            <span className="font-semibold">חירום מהיר</span>
                         </button>
                     </div>
                 </nav>
             </aside>
 
             {/* Main Content Area */}
-            <main className="flex-1 h-screen overflow-y-auto bg-gray-50/30 relative">
+            <main className="flex-1 h-screen overflow-y-auto bg-surface relative">
                 <div className="max-w-7xl mx-auto p-8 relative z-10">
                     <Outlet />
                 </div>
