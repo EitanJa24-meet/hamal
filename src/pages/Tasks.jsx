@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Download, ChevronDown, Trash2, Edit2, MapPin, Users } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 const FilterSelect = ({ label }) => (
     <div className="relative">
@@ -22,17 +23,21 @@ const Tasks = () => {
     const [tasks, setTasks] = useState([]);
 
     useEffect(() => {
-        fetch('/api/tasks')
-            .then(res => res.json())
-            .then(data => setTasks(data))
-            .catch(err => console.error("Error fetching tasks:", err));
+        supabase.from('tasks').select('*')
+            .then(({ data, error }) => {
+                if (!error && data) setTasks(data);
+                else console.error("Error fetching tasks:", error);
+            });
     }, []);
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (confirm("Are you sure you want to delete this task?")) {
-            fetch(`/api/tasks/${id}`, { method: 'DELETE' })
-                .then(() => setTasks(tasks.filter(t => t.id !== id)))
-                .catch(err => console.error(err));
+            const { error } = await supabase.from('tasks').delete().eq('id', id);
+            if (!error) {
+                setTasks(tasks.filter(t => t.id !== id));
+            } else {
+                console.error("Error deleting task:", error);
+            }
         }
     };
 

@@ -1,22 +1,24 @@
+```javascript
 import React, { useState, useEffect } from 'react';
 import { CheckCircle2, AlertTriangle, ClipboardList, Users } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { supabase } from '../supabaseClient';
 
 const StatCard = ({ title, subtitle, count, icon: Icon, iconColor, iconBg }) => (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between group">
-        <div className="flex justify-between items-start mb-4">
-            <div className={`p-3 rounded-xl ${iconBg} shadow-sm group-hover:scale-110 transition-transform`}>
-                <Icon className={iconColor} size={24} />
-            </div>
-            <div className="text-right w-full pr-4">
-                <h3 className="text-gray-500 font-medium text-sm">{title}</h3>
-                {subtitle && <p className="text-gray-400 text-xs mt-1">{subtitle}</p>}
-            </div>
-        </div>
-        <div className="flex justify-end items-end">
-            <span className="text-4xl font-bold tracking-tight text-gray-900">{count}</span>
-        </div>
+  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between group">
+    <div className="flex justify-between items-start mb-4">
+      <div className={`p - 3 rounded - xl ${ iconBg } shadow - sm group - hover: scale - 110 transition - transform`}>
+        <Icon className={iconColor} size={24} />
+      </div>
+      <div className="text-right w-full pr-4">
+        <h3 className="text-gray-500 font-medium text-sm">{title}</h3>
+        {subtitle && <p className="text-gray-400 text-xs mt-1">{subtitle}</p>}
+      </div>
     </div>
+    <div className="flex justify-end items-end">
+      <span className="text-4xl font-bold tracking-tight text-gray-900">{count}</span>
+    </div>
+  </div>
 );
 
 const Dashboard = () => {
@@ -29,15 +31,37 @@ const Dashboard = () => {
     const [charts, setCharts] = useState({ byType: [], byCity: [] });
 
     useEffect(() => {
-        fetch('/api/dashboard/stats')
-            .then(res => res.json())
-            .then(data => setStats(data))
-            .catch(err => console.error("Error fetching stats:", err));
+        const fetchStats = async () => {
+            const vols = await supabase.from('volunteers').select('*', { count: 'exact', head: true }).eq('status', 'available');
+            const openT = await supabase.from('tasks').select('*', { count: 'exact', head: true }).in('status', ['פתוחה', 'open']);
+            const compT = await supabase.from('tasks').select('*', { count: 'exact', head: true }).in('status', ['הושלמה', 'completed']);
+            const actE = await supabase.from('emergencies').select('*', { count: 'exact', head: true }).eq('status', 'active');
+            
+            setStats({
+                volunteers_available: vols.count || 0,
+                tasks_open: openT.count || 0,
+                tasks_completed: compT.count || 0,
+                emergencies_active: actE.count || 0
+            });
 
-        fetch('/api/dashboard/charts')
-            .then(res => res.json())
-            .then(data => setCharts(data))
-            .catch(err => console.error("Error fetching charts:", err));
+            const { data: allTasks } = await supabase.from('tasks').select('type, location');
+            if (allTasks) {
+                const typeCounts = {};
+                const cityCounts = {};
+                allTasks.forEach(t => {
+                    typeCounts[t.type] = (typeCounts[t.type] || 0) + 1;
+                    if(t.location) {
+                        const city = t.location.split(',')[0].trim();
+                        cityCounts[city] = (cityCounts[city] || 0) + 1;
+                    }
+                });
+                setCharts({
+                    byType: Object.keys(typeCounts).map(type => ({ name: type, value: typeCounts[type], color: '#2563eb' })),
+                    byCity: Object.keys(cityCounts).map(city => ({ city, count: cityCounts[city] }))
+                });
+            }
+        };
+        fetchStats();
     }, []);
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -70,7 +94,7 @@ const Dashboard = () => {
                 />
                 <StatCard
                     title="משימות פתוחות"
-                    subtitle={`${stats.tasks_open} סה״כ`}
+                    subtitle={`${ stats.tasks_open } סה״כ`}
                     count={stats.tasks_open}
                     icon={ClipboardList}
                     iconColor="text-yellow-600"
@@ -78,7 +102,7 @@ const Dashboard = () => {
                 />
                 <StatCard
                     title="מתנדבים"
-                    subtitle={`${stats.volunteers_available} זמינים`}
+                    subtitle={`${ stats.volunteers_available } זמינים`}
                     count={stats.volunteers_available}
                     icon={Users}
                     iconColor="text-blue-600"
@@ -105,7 +129,7 @@ const Dashboard = () => {
                                     labelLine={false}
                                 >
                                     {charts.byType.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color || '#2563eb'} />
+                                        <Cell key={`cell - ${ index } `} fill={entry.color || '#2563eb'} />
                                     ))}
                                 </Pie>
                                 <Tooltip />
