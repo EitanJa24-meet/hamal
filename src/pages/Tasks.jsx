@@ -128,10 +128,9 @@ const Tasks = () => {
             if (filterStatus && t.status !== filterStatus) return false;
             if (filterCity && t.city !== filterCity) return false;
 
-            // Note: removed targetedId isolation so other tasks stay visible
             return true;
         });
-    }, [tasks, search, filterUrgency, filterStatus, filterCity, targetedId, showArchived]);
+    }, [tasks, search, filterUrgency, filterStatus, filterCity, showArchived]);
 
     const handleAssign = async (volunteer, task) => {
         const { data, error } = await supabase.from('assignments').insert({ task_id: task.id, volunteer_id: volunteer.id, status: 'assigned' }).select();
