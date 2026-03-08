@@ -16,6 +16,11 @@ ALTER TABLE public.volunteers ADD COLUMN IF NOT EXISTS contact_phone TEXT;
 ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS volunteers_assigned INTEGER DEFAULT 0;
 ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false;
 ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS requester_name TEXT;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS requester_phone TEXT;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS time_type TEXT DEFAULT 'none'; -- none, specific, until
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS due_date TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS notes TEXT;
 
 -- 3. Create Assignments table if missing (for many-to-many linking)
 CREATE TABLE IF NOT EXISTS public.assignments (
