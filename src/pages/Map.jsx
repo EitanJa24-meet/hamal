@@ -3,10 +3,10 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 're
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../supabaseClient';
-import { Filter, Car, Phone, MapPin, Users, Hammer, AlertCircle, ExternalLink, Search, User, Briefcase, Star, Info } from 'lucide-react';
+import { Filter, Car, Phone, MapPin, Users, Hammer, AlertCircle, ExternalLink, Search, User, Briefcase, Star, Info, CheckCircle2, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const PRIORITY_CITIES = ['תל אביב', 'ירושלים', 'חיפה', 'באר שבע', 'עוטף עזה', 'גבול הצפון', 'שדרות', 'אשקלון'];
+const PRIORITY_CITIES = ['תל אביב', 'ירושלים', 'חיפה', 'באר שבע', 'שדרות', 'אשקלון'];
 const SKILLS = ['בייביסיטר', 'עזרה לקשישים', 'ניקיון', 'לוגיסטיקה', 'חלוקת אוכל', 'ניקוי רסיסים', 'עזרה כללית', 'הסעות'];
 
 // ─── Leaflet Icon Fix ──────────────────────────────────────────────────────
@@ -23,19 +23,7 @@ L.Icon.Default.mergeOptions({
 // Premium Map Icons
 const createIcon = (color, label, shadowColor = 'rgba(0,0,0,0.15)') => L.divIcon({
     className: 'custom-map-icon',
-    html: `<div style="
-        background: ${color};
-        border: 2px solid white;
-        border-radius: 50% 50% 50% 0;
-        width: 34px; height: 34px;
-        display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 4px 10px ${shadowColor};
-        font-size: 16px;
-        transform: rotate(-45deg);
-        transition: transform 0.2s ease;
-    ">
-        <div style="transform: rotate(45deg);">${label}</div>
-    </div>`,
+    html: `<div style="background: ${color};border: 2px solid white;border-radius: 50% 50% 50% 0;width:34px;height:34px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px ${shadowColor};font-size:16px;transform:rotate(-45deg);transition:transform 0.2s ease;"><div style="transform: rotate(45deg);">${label}</div></div>`,
     iconSize: [34, 34],
     iconAnchor: [17, 34],
     popupAnchor: [0, -34],
@@ -48,13 +36,9 @@ const taskIconFn = (urgency) => {
 const volIcon = createIcon('#3b82f6', '👤');
 const groupIcon = createIcon('#f59e0b', '👥', 'rgba(245,158,11,0.2)');
 
-// ─── ZOOM & BOUNDS ─────────────────────────────────────────────────────────
 const MapController = ({ volunteers, tasks, setZoomLevel }) => {
     const map = useMap();
-    useMapEvents({
-        zoomend: () => setZoomLevel(map.getZoom()),
-    });
-
+    useMapEvents({ zoomend: () => setZoomLevel(map.getZoom()) });
     useEffect(() => {
         const points = [
             ...tasks.filter(t => t.lat && t.lng).map(t => [t.lat, t.lng]),
@@ -62,14 +46,20 @@ const MapController = ({ volunteers, tasks, setZoomLevel }) => {
         ];
         if (points.length > 0) map.fitBounds(points, { padding: [50, 50], maxZoom: 13 });
     }, [tasks, volunteers, map]);
-
     return null;
 };
+
+const IOSSwitch = ({ checked, onChange, color = "bg-primary" }) => (
+    <button onClick={() => onChange(!checked)} className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${checked ? color : 'bg-gray-200'}`}>
+        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? (document.dir === 'rtl' ? '-translate-x-4' : 'translate-x-4') : 'translate-x-0'}`} />
+    </button>
+);
 
 const MapView = () => {
     const navigate = useNavigate();
     const [volunteers, setVolunteers] = useState([]);
     const [tasks, setTasks] = useState([]);
+    const [assignments, setAssignments] = useState([]);
     const [zoomLevel, setZoomLevel] = useState(8);
 
     // UI states
@@ -78,7 +68,6 @@ const MapView = () => {
 
     // Deep Filters
     const [volSearch, setVolSearch] = useState('');
-    const [volCity, setVolCity] = useState('');
     const [volGender, setVolGender] = useState('');
     const [volSkill, setVolSkill] = useState('');
     const [volType, setVolType] = useState('');
@@ -86,17 +75,15 @@ const MapView = () => {
     const [volStatus, setVolStatus] = useState('available');
 
     const [taskSearch, setTaskSearch] = useState('');
-    const [taskCity, setTaskCity] = useState('');
     const [taskUrgency, setTaskUrgency] = useState('');
     const [taskStatus, setTaskStatus] = useState('open');
 
-    // Fetch All (handling > 1000 limit)
     const fetchAll = async (table) => {
         let allData = [];
         let from = 0;
         let finished = false;
         while (!finished) {
-            const { data, error } = await supabase.from(table).select('*').not('lat', 'is', null).range(from, from + 999);
+            const { data, error } = await supabase.from(table).select('*').range(from, from + 999);
             if (error || !data || data.length === 0) finished = true;
             else {
                 allData = [...allData, ...data];
@@ -109,24 +96,23 @@ const MapView = () => {
 
     useEffect(() => {
         fetchAll('volunteers').then(setVolunteers);
-        fetchAll('tasks').then(data => setTasks(data.filter(t => !t.is_archived)));
+        fetchAll('tasks').then(data => setTasks(data.filter(t => !t.is_archived && t.lat && t.lng)));
+        fetchAll('assignments').then(setAssignments);
     }, []);
 
-    // Filter Logic
     const filteredTasks = useMemo(() => {
         return tasks.filter(t => {
             if (taskSearch && !t.name?.toLowerCase().includes(taskSearch.toLowerCase())) return false;
-            if (taskCity && t.city !== taskCity) return false;
             if (taskUrgency && t.urgency !== taskUrgency) return false;
             if (taskStatus && t.status !== taskStatus) return false;
             return true;
         });
-    }, [tasks, taskSearch, taskCity, taskUrgency, taskStatus]);
+    }, [tasks, taskSearch, taskUrgency, taskStatus]);
 
     const filteredVols = useMemo(() => {
         return volunteers.filter(v => {
+            if (v.lat === null || v.lng === null) return false;
             if (volSearch && !v.full_name?.toLowerCase().includes(volSearch.toLowerCase()) && !v.group_name?.toLowerCase().includes(volSearch.toLowerCase())) return false;
-            if (volCity && v.city !== volCity) return false;
             if (volGender && v.gender !== volGender) return false;
             if (volSkill && !(v.skills || []).includes(volSkill)) return false;
             if (volType && v.volunteer_type !== volType) return false;
@@ -134,9 +120,8 @@ const MapView = () => {
             if (volStatus && v.status !== volStatus) return false;
             return true;
         });
-    }, [volunteers, volSearch, volCity, volGender, volSkill, volType, volCar, volStatus]);
+    }, [volunteers, volSearch, volGender, volSkill, volType, volCar, volStatus]);
 
-    // Jitter function for markers at same city/coord
     const jitter = (items, radiusBase = 0.0006) => {
         const coordsMap = {};
         return items.map(item => {
@@ -155,54 +140,35 @@ const MapView = () => {
     const jitteredTasks = useMemo(() => jitter(filteredTasks, 0.0008), [filteredTasks]);
     const jitteredVols = useMemo(() => jitter(filteredVols, 0.0006), [filteredVols]);
 
-    // Visibility logic (Volunteers only show at zoom >= 10)
     const volunteersVisible = zoomLevel >= 11 && showVols;
 
-    const volCities = useMemo(() => {
-        const raw = [...new Set(volunteers.map(v => v.city).filter(Boolean))].sort();
-        return [...PRIORITY_CITIES.filter(pc => raw.includes(pc)), ...raw.filter(r => !PRIORITY_CITIES.includes(r))];
-    }, [volunteers]);
-
-    const taskCities = useMemo(() => {
-        const raw = [...new Set(tasks.map(t => t.city).filter(Boolean))].sort();
-        return [...PRIORITY_CITIES.filter(pc => raw.includes(pc)), ...raw.filter(r => !PRIORITY_CITIES.includes(r))];
-    }, [tasks]);
-
-    const selectStyle = "w-full border border-gray-100 rounded-xl py-2 px-3 text-[11px] bg-gray-50 outline-none focus:ring-1 focus:ring-primary/20";
+    const selectStyle = "w-full border border-gray-100 rounded-xl py-2 px-3 text-[11px] bg-gray-50 outline-none focus:ring-1 focus:ring-primary/20 transition-all shadow-sm";
 
     return (
-        <div className="flex flex-col lg:flex-row h-full gap-4 animate-in fade-in duration-500" style={{ minHeight: '85vh' }}>
-
-            {/* ─── SIDEBAR FILTERS ─── */}
-            <div className="w-full lg:w-80 flex flex-col gap-4 shrink-0 overflow-y-auto max-h-[85vh] pr-1 pb-4">
+        <div className="flex flex-col lg:flex-row h-full gap-4 animate-in fade-in duration-500 pb-4" style={{ minHeight: '85vh' }}>
+            <div className="w-full lg:w-80 flex flex-col gap-4 shrink-0 overflow-y-auto max-h-[85vh] pr-1 pb-4" dir="rtl">
                 <div className="bg-white rounded-2xl border border-primary/10 p-5 shadow-sm space-y-1">
                     <h2 className="text-2xl font-black text-gray-900 tracking-tight">שליטה ומפה</h2>
                     <p className="text-xs text-gray-500 font-bold flex items-center gap-1"><Info size={12} /> {volunteersVisible ? 'כל הנתונים מוצגים' : 'עשי זום כדי לראות מתנדבים'}</p>
                 </div>
 
-                {/* Task Filters */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm space-y-3">
                     <div className="flex justify-between items-center">
                         <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-2"><Hammer size={12} /> משימות התנדבות</h4>
-                        <button onClick={() => setShowTasks(!showTasks)} className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${showTasks ? 'bg-red-50 text-red-600' : 'bg-gray-50 text-gray-400'}`}>{showTasks ? 'ON' : 'OFF'}</button>
+                        <IOSSwitch checked={showTasks} onChange={setShowTasks} color="bg-red-500" />
                     </div>
                     <div className="relative">
                         <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300" size={14} />
                         <input type="text" placeholder="חיפוש משימה..." value={taskSearch} onChange={e => setTaskSearch(e.target.value)} className="w-full pr-8 py-2 border border-gray-100 rounded-xl text-xs bg-gray-50 outline-none focus:ring-1 focus:ring-red-200" />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <select value={taskCity} onChange={e => setTaskCity(e.target.value)} className={selectStyle}>
-                            <option value="">כל האזורים</option>
-                            <optgroup label="אזורים חשובים">{PRIORITY_CITIES.map(c => <option key={`t-${c}`} value={c}>{c}</option>)}</optgroup>
-                            <optgroup label="שאר הארץ">{taskCities.filter(c => !PRIORITY_CITIES.includes(c)).map(c => <option key={`t2-${c}`} value={c}>{c}</option>)}</optgroup>
-                        </select>
                         <select value={taskUrgency} onChange={e => setTaskUrgency(e.target.value)} className={selectStyle}>
                             <option value="">כל הדחיפויות</option>
                             <option value="emergency">🔴 חירום</option>
                             <option value="high">גבוהה</option>
                             <option value="medium">בינונית</option>
                         </select>
-                        <select value={taskStatus} onChange={e => setTaskStatus(e.target.value)} className={selectStyle + " col-span-2"}>
+                        <select value={taskStatus} onChange={e => setTaskStatus(e.target.value)} className={selectStyle}>
                             <option value="">כל הסטטוסים</option>
                             <option value="open">פתוחה</option>
                             <option value="assigning">בשיבוץ</option>
@@ -211,22 +177,16 @@ const MapView = () => {
                     </div>
                 </div>
 
-                {/* Volunteer Filters */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm space-y-3">
                     <div className="flex justify-between items-center">
                         <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest flex items-center gap-2"><Users size={12} /> מאגר מתנדבים</h4>
-                        <button onClick={() => setShowVols(!showVols)} className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${showVols ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-gray-400'}`}>{showVols ? 'ON' : 'OFF'}</button>
+                        <IOSSwitch checked={showVols} onChange={setShowVols} color="bg-blue-500" />
                     </div>
                     <div className="relative">
                         <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300" size={14} />
                         <input type="text" placeholder="חיפוש מתנדב/קבוצה..." value={volSearch} onChange={e => setVolSearch(e.target.value)} className="w-full pr-8 py-2 border border-gray-100 rounded-xl text-xs bg-gray-50 outline-none focus:ring-1 focus:ring-blue-200" />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                        <select value={volCity} onChange={e => setVolCity(e.target.value)} className={selectStyle}>
-                            <option value="">כל האזורים</option>
-                            <optgroup label="חשובים">{PRIORITY_CITIES.map(c => <option key={`v-${c}`} value={c}>{c}</option>)}</optgroup>
-                            <optgroup label="אחרים">{volCities.filter(c => !PRIORITY_CITIES.includes(c)).map(c => <option key={`v2-${c}`} value={c}>{c}</option>)}</optgroup>
-                        </select>
                         <select value={volSkill} onChange={e => setVolSkill(e.target.value)} className={selectStyle}>
                             <option value="">כל הכישורים</option>
                             {SKILLS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -236,22 +196,24 @@ const MapView = () => {
                             <option value="זכר">זכר</option>
                             <option value="נקבה">נקבה</option>
                         </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
                         <select value={volType} onChange={e => setVolType(e.target.value)} className={selectStyle}>
-                            <option value="">סוג</option>
+                            <option value="">סוג אישיות</option>
                             <option value="individual">יחידים</option>
                             <option value="group">קבוצות</option>
                         </select>
+                        <label className="flex items-center justify-center gap-2 p-1.5 bg-gray-50 rounded-xl cursor-pointer border border-gray-100 border-dashed">
+                            <input type="checkbox" checked={volCar} onChange={e => setVolCar(e.target.checked)} className="rounded text-primary" />
+                            <span className="text-[10px] font-bold text-gray-600">רק עם רכב</span>
+                        </label>
                     </div>
-                    <label className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl cursor-pointer">
-                        <input type="checkbox" checked={volCar} onChange={e => setVolCar(e.target.checked)} className="rounded" />
-                        <span className="text-[10px] font-bold text-gray-600">רק עם רכב</span>
-                    </label>
                 </div>
 
-                <div className="bg-gray-900 rounded-2xl p-5 text-white shadow-xl">
+                <div className="bg-gray-900 rounded-2xl p-5 text-white shadow-xl mt-auto">
                     <div className="flex justify-between items-center mb-4">
                         <span className="text-[10px] font-bold text-gray-400">סטטיסטיקה נוכחית</span>
-                        <div className="flex gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-red-400"></div><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div></div>
+                        <div className="flex gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></div><div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse delay-150"></div></div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div><div className="text-2xl font-black">{filteredTasks.length}</div><div className="text-[9px] text-gray-400 font-bold">משימות</div></div>
@@ -260,106 +222,72 @@ const MapView = () => {
                 </div>
             </div>
 
-            {/* ─── MAP AREA ─── */}
             <div className="flex-1 rounded-3xl overflow-hidden shadow-2xl border-4 border-white relative z-0">
                 <MapContainer center={[31.5, 34.8]} zoom={8} style={{ height: '100%', width: '100%' }}>
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
                     <MapController volunteers={filteredVols} tasks={filteredTasks} setZoomLevel={setZoomLevel} />
 
-                    {/* Volunteers show later when zoom in */}
-                    {volunteersVisible && jitteredVols.map(v => (
-                        <Marker key={v.id} position={[v.lat, v.lng]} icon={v.volunteer_type === 'group' ? groupIcon : volIcon} zIndexOffset={100}>
-                            <Popup minWidth={240}>
-                                <div className="text-right p-1" dir="rtl">
-                                    <div className="flex items-start gap-3 mb-3">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${v.volunteer_type === 'group' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                                            <Users size={20} />
+                    {volunteersVisible && jitteredVols.map(v => {
+                        const volTasks = assignments.filter(a => a.volunteer_id === v.id).map(a => tasks.find(t => t.id === a.task_id)).filter(Boolean);
+                        return (
+                            <Marker key={v.id} position={[v.lat, v.lng]} icon={v.volunteer_type === 'group' ? groupIcon : volIcon} zIndexOffset={100}>
+                                <Popup minWidth={260}>
+                                    <div className="text-right p-1" dir="rtl">
+                                        <div className="flex items-start gap-3 mb-3">
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${v.volunteer_type === 'group' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}><Users size={20} /></div>
+                                            <div className="min-w-0">
+                                                <h3 className="font-black text-base text-gray-900 leading-tight truncate">{v.volunteer_type === 'group' ? v.group_name : v.full_name}</h3>
+                                                <p className="text-[10px] text-gray-400 font-bold flex items-center gap-1 uppercase tracking-tight">
+                                                    {v.volunteer_type === 'group' ? `קבוצה (${v.group_size} איש)` : `${v.gender || 'מתנדב/ת'} · גיל ${v.age || '?'}`}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="min-w-0">
-                                            <h3 className="font-black text-base text-gray-900 leading-tight truncate">{v.volunteer_type === 'group' ? v.group_name : v.full_name}</h3>
-                                            <p className="text-[10px] text-gray-400 font-bold flex items-center gap-1 uppercase tracking-tight">
-                                                {v.volunteer_type === 'group' ? `קבוצה (${v.group_size} איש)` : `${v.gender || 'מתנדב/ת'} · גיל ${v.age || '?'}`}
-                                            </p>
+                                        <div className="grid grid-cols-1 gap-2 text-xs mb-3">
+                                            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100"><Phone size={14} className="text-blue-500" /> <span dir="ltr" className="font-bold">{v.volunteer_type === 'group' ? v.contact_phone : v.phone}</span></div>
+                                            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100"><MapPin size={14} className="text-blue-500" /> <span className="font-medium truncate">{v.city} · {v.address || 'לא צוין'}</span></div>
                                         </div>
-                                    </div>
 
-                                    <div className="grid grid-cols-1 gap-2 text-xs mb-4">
-                                        <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
-                                            <Phone size={14} className="text-blue-500" /> <span dir="ltr" className="font-bold">{v.volunteer_type === 'group' ? v.contact_phone : v.phone}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
-                                            <MapPin size={14} className="text-blue-500" /> <span className="font-medium truncate">{v.city} · {v.address || 'ללא כתובת מדויקת'}</span>
-                                        </div>
-                                        {v.has_car && (
-                                            <div className="flex items-center gap-2 text-emerald-600 font-bold px-2 py-1 text-[11px]">
-                                                <Car size={14} /> בעל/ת רכב
+                                        {volTasks.length > 0 && (
+                                            <div className="mb-4 bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
+                                                <h4 className="text-[10px] font-black text-emerald-700 uppercase mb-2 flex items-center gap-1"><History size={12} /> היסטוריית התנדבויות ({volTasks.length})</h4>
+                                                <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
+                                                    {volTasks.map(t => (
+                                                        <div key={t.id} className="text-[11px] font-bold text-emerald-800 flex items-center gap-1.5"><CheckCircle2 size={10} /> {t.name} <span className="text-[9px] font-normal opacity-60">({t.city})</span></div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
-                                    </div>
 
-                                    {v.skills && v.skills.length > 0 && (
-                                        <div className="flex flex-wrap gap-1 mb-4">
-                                            {v.skills.map(s => <span key={s} className="bg-blue-50 text-blue-700 text-[10px] px-1.5 py-0.5 rounded-md border border-blue-100 font-bold">{s}</span>)}
+                                        <div className="flex items-center justify-between border-t border-gray-50 pt-3">
+                                            <div className={`px-2 py-1 rounded-full text-[10px] font-black ${v.status === 'available' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{v.status === 'available' ? 'פנוי/ה לשיבוץ' : 'בפעילות'}</div>
+                                            <button onClick={() => navigate(`/volunteers?id=${v.id}`)} className="flex items-center gap-1.5 text-[11px] font-black text-primary hover:translate-x-1 transition-all">ניהול מתנדב <ExternalLink size={12} /></button>
                                         </div>
-                                    )}
-
-                                    <div className="flex items-center justify-between border-t border-gray-50 pt-3">
-                                        <div className={`px-2 py-1 rounded-full text-[10px] font-black ${v.status === 'available' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                            {v.status === 'available' ? 'פנוי/ה לשיבוץ' : 'בפעילות'}
-                                        </div>
-                                        <button onClick={() => navigate(`/volunteers?id=${v.id}`)} className="flex items-center gap-1.5 text-[11px] font-black text-primary transition-all hover:translate-x-1">
-                                            מעבר לכרטיס <ExternalLink size={12} />
-                                        </button>
                                     </div>
-                                </div>
-                            </Popup>
-                        </Marker>
-                    ))}
+                                </Popup>
+                            </Marker>
+                        );
+                    })}
 
-                    {/* Missions always show and on TOP (higher Z) */}
                     {showTasks && jitteredTasks.map(t => (
                         <Marker key={t.id} position={[t.lat, t.lng]} icon={taskIconFn(t.urgency)} zIndexOffset={1000}>
                             <Popup minWidth={240}>
                                 <div className="text-right p-1" dir="rtl">
                                     <div className="flex items-start gap-3 mb-3">
-                                        <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-                                            <AlertCircle size={20} />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <h3 className="font-black text-base text-gray-900 leading-tight truncate">{t.name}</h3>
-                                            <p className="text-[10px] text-red-500 font-bold flex items-center gap-1">
-                                                <Star size={10} fill="currentColor" /> {t.type || 'סיוע כללי'}
-                                            </p>
-                                        </div>
+                                        <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0"><AlertCircle size={20} /></div>
+                                        <div className="min-w-0"><h3 className="font-black text-base text-gray-900 leading-tight truncate">{t.name}</h3><p className="text-[10px] text-red-500 font-bold flex items-center gap-1"><Star size={10} fill="currentColor" /> {t.type || 'סיוע כללי'}</p></div>
                                     </div>
-
-                                    <div className="bg-gray-50 p-3 rounded-xl space-y-2 mb-4">
-                                        <div className="flex items-center gap-2 text-xs">
-                                            <MapPin size={14} className="text-gray-400" />
-                                            <span className="font-bold">{t.address}, {t.city}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-xs">
-                                            <Hammer size={14} className="text-gray-400" />
-                                            <span>דחיפות: <span className="font-black text-red-600">{t.urgency === 'emergency' ? 'חירום' : t.urgency === 'high' ? 'גבוהה' : 'בינונית'}</span></span>
-                                        </div>
-                                        <p className="text-xs text-gray-600 leading-relaxed line-clamp-2 mt-1">
-                                            {t.description || 'אין תיאור נוסף למשימה זו.'}
-                                        </p>
+                                    <div className="bg-gray-50 p-3 rounded-xl space-y-2 mb-4 border border-gray-100">
+                                        <div className="flex items-center gap-2 text-xs"><MapPin size={14} className="text-gray-400" /><span className="font-bold">{t.address}, {t.city}</span></div>
+                                        <div className="flex items-center gap-2 text-xs"><Hammer size={14} className="text-gray-400" /><span>דחיפות: <span className="font-black text-red-600">{t.urgency === 'emergency' ? 'חירום' : t.urgency === 'high' ? 'גבוהה' : 'בינונית'}</span></span></div>
                                     </div>
-
                                     <div className="flex items-center justify-between border-t border-gray-50 pt-3">
-                                        <div className={`px-2 py-1 rounded-full text-[10px] font-black ${t.status === 'open' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                                            {t.status === 'open' ? 'פתוחה לרישום' : 'בטיפול (שיבוץ)'}
-                                        </div>
-                                        <button onClick={() => navigate(`/tasks?id=${t.id}`)} className="flex items-center gap-1.5 text-[11px] font-black text-primary transition-all hover:translate-x-1">
-                                            ניהול משימה <ExternalLink size={12} />
-                                        </button>
+                                        <div className={`px-2 py-1 rounded-full text-[10px] font-black ${t.status === 'open' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{t.status === 'open' ? 'פתוחה לרישום' : 'בטיפול'}</div>
+                                        <button onClick={() => navigate(`/tasks?id=${t.id}`)} className="flex items-center gap-1.5 text-[11px] font-black text-primary hover:translate-x-1 transition-all">ניהול משימה <ExternalLink size={12} /></button>
                                     </div>
                                 </div>
                             </Popup>
                         </Marker>
                     ))}
-
                 </MapContainer>
             </div>
         </div>
