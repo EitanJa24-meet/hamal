@@ -3,6 +3,7 @@ import { Users, Phone, MapPin, Car, Download, Upload, Plus, Trash2, Edit2 } from
 import { supabase } from '../supabaseClient';
 import VolunteerModal from '../components/VolunteerModal';
 import * as XLSX from 'xlsx';
+import { geocodeAddress } from '../utils/geocode';
 
 const Volunteers = () => {
     const [volunteers, setVolunteers] = useState([]);
@@ -28,8 +29,14 @@ const Volunteers = () => {
     };
 
     const handleSave = async (data) => {
-        const lat = data.lat || (32.0853 + (Math.random() * 0.1 - 0.05));
-        const lng = data.lng || (34.7818 + (Math.random() * 0.1 - 0.05));
+        let lat = data.lat;
+        let lng = data.lng;
+
+        if (!data.id) {
+            const loc = await geocodeAddress(data.address, data.city);
+            lat = loc.lat;
+            lng = loc.lng;
+        }
 
         if (data.id) {
             const { error } = await supabase.from('volunteers').update(data).eq('id', data.id);
@@ -69,16 +76,20 @@ const Volunteers = () => {
                 city: row.city || row['עיר'] || 'תל אביב',
                 address: row.address || row['כתובת'] || '',
                 has_car: String(row.has_car || row['רכב']).toLowerCase() === 'true' || row['רכב'] === 'כן',
-                lat: 32.0853 + (Math.random() * 0.1 - 0.05),
-                lng: 34.7818 + (Math.random() * 0.1 - 0.05),
                 status: 'available',
                 skills: []
             }));
 
             if (mappedData.length > 0) {
+                // Background geocode
+                alert(`מתחיל ביבוא ${mappedData.length} מתנדבים. נא לחכות כמה רגעים להשלמת התהליך...`);
+                for (let i = 0; i < mappedData.length; i++) {
+                    const loc = await geocodeAddress('', mappedData[i].city, true);
+                    mappedData[i].lat = loc.lat;
+                    mappedData[i].lng = loc.lng;
+                }
                 await supabase.from('volunteers').insert(mappedData);
                 loadData();
-                alert(`יובאו ${mappedData.length} מתנדבים בהצלחה`);
             }
         };
         reader.readAsBinaryString(file);

@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { getDistance } from 'geolib';
 import TaskModal from '../components/TaskModal';
 import * as XLSX from 'xlsx';
+import { geocodeAddress } from '../utils/geocode';
 
 const FilterSelect = ({ label }) => (
     <div className="relative">
@@ -113,8 +114,14 @@ const Tasks = () => {
     };
 
     const handleSave = async (data) => {
-        const lat = data.lat || (32.0853 + (Math.random() * 0.1 - 0.05));
-        const lng = data.lng || (34.7818 + (Math.random() * 0.1 - 0.05));
+        let lat = data.lat;
+        let lng = data.lng;
+
+        if (!data.id) {
+            const loc = await geocodeAddress(data.address, data.city);
+            lat = loc.lat;
+            lng = loc.lng;
+        }
 
         if (data.id) {
             const { error } = await supabase.from('tasks').update(data).eq('id', data.id);

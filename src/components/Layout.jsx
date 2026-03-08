@@ -1,8 +1,20 @@
+import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Map, Users, ClipboardList, AlertTriangle, LogOut, Shield } from 'lucide-react';
+import TaskModal from './TaskModal';
+import { supabase } from '../supabaseClient';
+import { geocodeAddress } from '../utils/geocode';
 
 const Layout = () => {
     const location = useLocation();
+    const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
+
+    const handleEmergencySave = async (data) => {
+        const loc = await geocodeAddress(data.address, data.city);
+        const { error } = await supabase.from('tasks').insert([{ ...data, lat: loc.lat, lng: loc.lng }]);
+        setIsEmergencyOpen(false);
+        if (!error) alert("אירוע חירום נפתח בהצלחה והוזן במפה!");
+    };
 
     const navItems = [
         { path: '/', icon: LayoutDashboard, label: 'דאשבורד' },
@@ -35,8 +47,8 @@ const Layout = () => {
                                 key={item.path}
                                 to={item.path}
                                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
-                                        ? 'bg-primary text-white shadow-md shadow-primary/20 scale-[1.02]'
-                                        : 'text-gray-600 hover:bg-gray-50 hover:text-primary hover:scale-[1.01]'
+                                    ? 'bg-primary text-white shadow-md shadow-primary/20 scale-[1.02]'
+                                    : 'text-gray-600 hover:bg-gray-50 hover:text-primary hover:scale-[1.01]'
                                     }`}
                             >
                                 <item.icon size={20} className={isActive ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'} />
@@ -46,7 +58,7 @@ const Layout = () => {
                     })}
 
                     <div className="pt-4 mt-4 border-t border-gray-100">
-                        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-alert hover:bg-red-50 hover:scale-[1.01] group">
+                        <button onClick={() => setIsEmergencyOpen(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-alert hover:bg-red-50 hover:scale-[1.01] group">
                             <AlertTriangle size={20} className="opacity-80 group-hover:opacity-100" />
                             <span className="font-semibold">חירום מהיר</span>
                         </button>
@@ -67,6 +79,13 @@ const Layout = () => {
                     <Outlet />
                 </div>
             </main>
+
+            <TaskModal
+                isOpen={isEmergencyOpen}
+                onClose={() => setIsEmergencyOpen(false)}
+                task={{ name: 'אירוע חירום דחוף!', type: 'עזרה כללית', description: '', address: '', city: '', urgency: 'high', volunteers_needed: 1, status: 'open', general_help: false }}
+                onSave={handleEmergencySave}
+            />
         </div>
     );
 };

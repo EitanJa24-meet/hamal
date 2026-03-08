@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ShieldCheck, MapPin, Car, Phone, User, Calendar } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import { geocodeAddress } from '../utils/geocode';
 
 const Register = () => {
     const navigate = useNavigate();
@@ -30,19 +31,11 @@ const Register = () => {
         }));
     };
 
-    const handleGeoCode = (city, address) => {
-        // Mock geocoding logic for demonstration: Center on Tel Aviv / Israel
-        return {
-            lat: 32.0853 + (Math.random() * 0.1 - 0.05),
-            lng: 34.7818 + (Math.random() * 0.1 - 0.05)
-        };
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSubmitting(true);
 
-        const loc = handleGeoCode(formData.city, formData.address);
+        const loc = await geocodeAddress(formData.address, formData.city);
 
         const { error } = await supabase.from('volunteers').insert([{
             full_name: formData.full_name,
@@ -156,8 +149,8 @@ const Register = () => {
                                         key={skill}
                                         onClick={() => handleCheckboxToggle(skill)}
                                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${formData.skills.includes(skill)
-                                                ? 'bg-primary text-white border-primary'
-                                                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                            ? 'bg-primary text-white border-primary'
+                                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                                             }`}
                                     >
                                         {skill}
