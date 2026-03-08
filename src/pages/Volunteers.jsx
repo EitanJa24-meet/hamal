@@ -7,7 +7,7 @@ import { geocodeAddress } from '../utils/geocode';
 import { useSearchParams } from 'react-router-dom';
 
 const SKILLS = ['בייביסיטר', 'עזרה לקשישים', 'ניקיון', 'לוגיסטיקה', 'חלוקת אוכל', 'ניקוי רסיסים', 'עזרה כללית'];
-const PRIORITY_CITIES = ['תל אביב', 'ירושלים', 'חיפה', 'באר שבע', 'עוטף עזה', 'גבול הצפון', 'שדרות', 'אשקלון'];
+const PRIORITY_CITIES = ['תל אביב', 'ירושלים', 'חיפה', 'באר שבע', 'אשדוד', 'אשקלון', 'שדרות'];
 
 const Volunteers = () => {
     const [searchParams, setSearchParams] = useSearchParams();

@@ -26,16 +26,13 @@ const Layout = () => {
     return (
         <div className="flex h-screen w-full bg-surface overflow-hidden">
             {/* Right Sidebar */}
-            <aside className="w-64 bg-white shadow-xl flex flex-col z-20 shrink-0">
-                <div className="bg-primary text-white p-6 flex flex-col items-center justify-center relative overflow-hidden">
-                    {/* Header Graphic */}
-                    <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white to-transparent"></div>
-                    <div className="flex items-center gap-3 z-10 w-full justify-center">
-                        <div className="text-right">
-                            <h1 className="text-xl font-bold tracking-tight">מרכז שליטה</h1>
-                            <p className="text-sm opacity-80 font-medium">ניהול מתנדבים</p>
+            <aside className="w-64 bg-white shadow-2xl flex flex-col z-20 shrink-0 border-l border-gray-100">
+                <div className="bg-white p-6 border-b border-gray-100 flex flex-col items-center justify-center relative overflow-hidden">
+                    <div className="flex flex-col items-center gap-2 z-10 w-full">
+                        <img src="/logo.png" alt="דרך פרת" className="h-[75px] w-auto drop-shadow-sm mb-1" />
+                        <div className="text-center">
+                            <h1 className="text-[10px] font-black tracking-[0.2em] text-primary uppercase opacity-70">מרכז שליטה חברתי</h1>
                         </div>
-                        <Shield size={32} className="opacity-90 mt-1" />
                     </div>
                 </div>
 
@@ -46,21 +43,21 @@ const Layout = () => {
                             <Link
                                 key={item.path}
                                 to={item.path}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
-                                    ? 'bg-primary text-white shadow-md shadow-primary/20 scale-[1.02]'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-primary hover:scale-[1.01]'
+                                className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group ${isActive
+                                    ? 'bg-primary text-white shadow-lg shadow-primary/30'
+                                    : 'text-gray-500 hover:bg-gray-50 hover:text-primary'
                                     }`}
                             >
-                                <item.icon size={20} className={isActive ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'} />
-                                <span className="font-semibold">{item.label}</span>
+                                <item.icon size={20} className={isActive ? 'opacity-100' : 'opacity-50 group-hover:opacity-100'} />
+                                <span className={`font-bold text-sm ${isActive ? 'tracking-wide' : 'tracking-normal'}`}>{item.label}</span>
                             </Link>
                         );
                     })}
 
-                    <div className="pt-4 mt-4 border-t border-gray-100">
-                        <button onClick={() => setIsEmergencyOpen(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-alert hover:bg-red-50 hover:scale-[1.01] group">
-                            <AlertTriangle size={20} className="opacity-80 group-hover:opacity-100" />
-                            <span className="font-semibold">חירום מהיר</span>
+                    <div className="pt-6 mt-6 border-t border-gray-100">
+                        <button onClick={() => setIsEmergencyOpen(true)} className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl transition-all duration-300 bg-secondary/5 text-secondary border border-secondary/10 hover:bg-secondary hover:text-white shadow-sm hover:shadow-secondary/20 group">
+                            <AlertTriangle size={20} className="animate-pulse" />
+                            <span className="font-black text-sm uppercase tracking-tighter">פתיחת אירוע חירום</span>
                         </button>
                     </div>
                 </nav>

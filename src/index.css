@@ -1,12 +1,14 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #7e9ceb;
-  /* Soft blue */
-  --color-alert: #e88b8b;
-  /* Soft red */
-  --color-surface: #ffffff;
-  /* White bg */
+  --color-primary: #1e3a8a;
+  /* Deep blue from logo */
+  --color-secondary: #be123c;
+  /* Heart red from logo */
+  --color-alert: #e11d48;
+  /* Brighter alert red */
+  --color-surface: #f8fafc;
+  /* Very light slate for premium feel */
 }
 
 @layer base {

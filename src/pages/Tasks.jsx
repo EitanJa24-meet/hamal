@@ -312,7 +312,11 @@ const Tasks = () => {
                                                 </div>
                                             </div>
                                             <div className="text-sm font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100/50 shadow-sm flex items-center gap-2">
-                                                <UserCheck size={16} /> {taskAssigned.length} משובצים
+                                                <UserCheck size={16} /> {taskAssigned.reduce((acc, a) => {
+                                                    const v = allVolunteers.find(vol => vol.id === a.volunteer_id);
+                                                    const size = (v?.volunteer_type === 'group' ? v.group_size : 1) || 1;
+                                                    return acc + size;
+                                                }, 0)} מתנדבים שובצו
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
