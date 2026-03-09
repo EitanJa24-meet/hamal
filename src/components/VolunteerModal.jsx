@@ -131,12 +131,13 @@ const VolunteerModal = ({ isOpen, onClose, volunteer, onSave }) => {
                                         <input type="text" value={formData.address || ''} onChange={e => setFormData({ ...formData, address: e.target.value })} className={inp} />
                                     </div>
                                 </div>
-                                <div>
-                                    <label className={lbl}>הערות נוספות</label>
-                                    <textarea rows="2" value={formData.notes || ''} onChange={e => setFormData({ ...formData, notes: e.target.value })} className={inp}></textarea>
-                                </div>
                             </>
                         )}
+
+                        <div>
+                            <label className={lbl}>הערות נוספות</label>
+                            <textarea rows="2" value={formData.notes || ''} onChange={e => setFormData({ ...formData, notes: e.target.value })} className={inp} placeholder="מידע נוסף, זמינות חריגה, רקע וכו'..."></textarea>
+                        </div>
 
                         {/* Skills – both types */}
                         <div>
