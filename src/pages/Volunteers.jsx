@@ -124,6 +124,64 @@ const Volunteers = () => {
         setIsModalOpen(false);
     };
 
+    const handleExport = () => {
+        const dataToExport = filtered.map(v => ({
+            'שם מלא/קבוצה': v.volunteer_type === 'group' ? v.group_name : v.full_name,
+            'סוג': v.volunteer_type === 'group' ? 'קבוצה' : 'יחיד',
+            'טלפון': v.volunteer_type === 'group' ? v.contact_phone : v.phone,
+            'עיר': v.city,
+            'כתובת': v.address,
+            'גיל/גודל': v.volunteer_type === 'group' ? v.group_size : v.age,
+            'מגדר': v.gender,
+            'סטטוס עבודה': v.status === 'available' ? 'פנוי' : (v.status === 'assigned' ? 'בפעילות' : 'לא זמין'),
+            'סטטוס קשר': v.contact_status,
+            'מיומנויות': (v.skills || []).join(', '),
+            'הערות': v.notes
+        }));
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Volunteers");
+        XLSX.writeFile(wb, `volunteers_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
+
+    const handleImport = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            const bstr = evt.target.result;
+            const wb = XLSX.read(bstr, { type: 'binary' });
+            const wsname = wb.SheetNames[0];
+            const ws = wb.Sheets[wsname];
+            const data = XLSX.utils.sheet_to_json(ws);
+
+            setIsLoading(true);
+            const newVolunteers = data.map(row => ({
+                full_name: row['שם מלא/קבוצה'] || row['שם'] || '',
+                phone: row['טלפון'] || row['נייד'] || '',
+                city: row['עיר'] || '',
+                address: row['כתובת'] || '',
+                age: parseInt(row['גיל/גודל'] || row['גיל']) || null,
+                gender: row['מגדר'] || '',
+                status: 'available',
+                contact_status: row['סטטוס קשר'] || 'עדין לא נוצר קשר',
+                volunteer_type: (row['סוג'] === 'קבוצה') ? 'group' : 'individual',
+                group_name: (row['סוג'] === 'קבוצה') ? (row['שם מלא/קבוצה'] || '') : '',
+                group_size: (row['סוג'] === 'קבוצה') ? (parseInt(row['גיל/גודל']) || 2) : 1
+            }));
+
+            const { data: inserted, error } = await supabase.from('volunteers').insert(newVolunteers).select();
+            if (error) alert('שגיאה בייבוא: ' + error.message);
+            else {
+                alert(`יובאו בהצלחה ${inserted?.length || 0} מתנדבים`);
+                loadData();
+            }
+            setIsLoading(false);
+            e.target.value = '';
+        };
+        reader.readAsBinaryString(file);
+    };
+
     const statusBadge = (s) => {
         const styles = { available: "bg-emerald-50 text-emerald-700 border-emerald-100", assigned: "bg-blue-50 text-blue-700 border-blue-100", busy: "bg-red-50 text-red-700 border-red-100" };
         const labels = { available: "פנוי", assigned: "בפעילות", busy: "לא זמין" };
@@ -148,6 +206,9 @@ const Volunteers = () => {
                     <p className="text-gray-500 mt-1">מציג {filtered.length} מתוך {volunteers.length} מתנדבים</p>
                 </div>
                 <div className="flex flex-wrap gap-2 text-sm font-bold">
+                    <input type="file" ref={fileInputRef} onChange={handleImport} className="hidden" accept=".xlsx, .xls, .csv" />
+                    <button onClick={() => fileInputRef.current.click()} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl flex items-center gap-2 hover:bg-gray-50 transition-all shadow-sm"> <Upload size={18} /> ייבוא אקסל </button>
+                    <button onClick={handleExport} className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl flex items-center gap-2 hover:bg-gray-50 transition-all shadow-sm"> <Download size={18} /> ייצוא </button>
                     <button onClick={() => { setEditingVol(null); setIsModalOpen(true); }} className="px-5 py-2 bg-primary text-white rounded-xl flex items-center gap-2 shadow-md shadow-primary/20 hover:scale-105 transition-all"> <Plus size={18} /> הוספה ידנית </button>
                 </div>
             </div>
