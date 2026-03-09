@@ -33,7 +33,7 @@ export const cleanVolunteerData = (data) => {
     const allowedFields = [
         'full_name', 'phone', 'age', 'address', 'city', 'lat', 'lng',
         'has_car', 'gender', 'skills', 'notes', 'status', 'volunteer_type',
-        'group_name', 'org_name', 'group_size', 'contact_person', 'contact_phone'
+        'group_name', 'org_name', 'group_size', 'contact_person', 'contact_phone', 'contact_status'
     ];
 
     const clean = {};

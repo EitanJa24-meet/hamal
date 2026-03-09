@@ -28,6 +28,7 @@ const Volunteers = () => {
     const [filterCar, setFilterCar] = useState('');
     const [filterGender, setFilterGender] = useState('');
     const [filterType, setFilterType] = useState('');
+    const [filterContactStatus, setFilterContactStatus] = useState('');
 
     const loadData = async () => {
         setIsLoading(true);
@@ -89,6 +90,7 @@ const Volunteers = () => {
             if (filterCar === 'no' && v.has_car) return false;
             if (filterGender && v.gender !== filterGender) return false;
             if (filterType && v.volunteer_type !== filterType) return false;
+            if (filterContactStatus && v.contact_status !== filterContactStatus) return false;
             return true;
         });
     }, [volunteers, search, filterCity, filterStatus, filterSkill, filterCar, filterGender, filterType, targetedId]);
@@ -96,7 +98,7 @@ const Volunteers = () => {
     const hasActiveFilters = search || filterCity || filterStatus || filterSkill || filterCar || filterGender || filterType || targetedId;
     const clearFilters = () => {
         setSearch(''); setFilterCity(''); setFilterStatus(''); setFilterSkill('');
-        setFilterCar(''); setFilterGender(''); setFilterType('');
+        setFilterCar(''); setFilterGender(''); setFilterType(''); setFilterContactStatus('');
         setSearchParams({});
     };
 
@@ -126,6 +128,16 @@ const Volunteers = () => {
         const styles = { available: "bg-emerald-50 text-emerald-700 border-emerald-100", assigned: "bg-blue-50 text-blue-700 border-blue-100", busy: "bg-red-50 text-red-700 border-red-100" };
         const labels = { available: "פנוי", assigned: "בפעילות", busy: "לא זמין" };
         return <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${styles[s] || styles.available}`}>{labels[s] || s}</span>;
+    };
+
+    const contactStatusBadge = (s) => {
+        const styles = {
+            'עדין לא נוצר קשר': "bg-gray-50 text-gray-500 border-gray-100",
+            'לא רלוונטי': "bg-red-50 text-red-500 border-red-100",
+            'מתנדב חוזר': "bg-purple-50 text-purple-600 border-purple-100",
+            'רוצה להתנדב': "bg-blue-50 text-blue-600 border-blue-100"
+        };
+        return <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${styles[s] || styles['עדין לא נוצר קשר']}`}>{s || 'עדין לא נוצר קשר'}</span>;
     };
 
     return (
@@ -170,6 +182,13 @@ const Volunteers = () => {
                     <option value="individual">יחיד</option>
                     <option value="group">קבוצה</option>
                 </select>
+                <select value={filterContactStatus} onChange={e => setFilterContactStatus(e.target.value)} className="px-3 py-2 border border-blue-200 rounded-xl text-sm outline-none bg-blue-50/30 text-blue-700 font-bold">
+                    <option value="">כל הסטטוסים (קשר)</option>
+                    <option value="עדין לא נוצר קשר">עדין לא נוצר קשר</option>
+                    <option value="לא רלוונטי">לא רלוונטי</option>
+                    <option value="מתנדב חוזר">מתנדב חוזר</option>
+                    <option value="רוצה להתנדב">רוצה להתנדב</option>
+                </select>
                 {hasActiveFilters && (<button onClick={clearFilters} className="text-gray-400 hover:text-red-500 text-xs flex items-center gap-1 font-medium transition-colors"> <X size={14} /> נקה </button>)}
             </div>
 
@@ -181,9 +200,8 @@ const Volunteers = () => {
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">שם / קבוצה</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">טלפון</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">אזור</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">גיל</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">מגדר</th>
-                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">סטטוס</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">סטטוס קשר</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">סטטוס עבודה</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">פעולות</th>
                             </tr>
                         </thead>
@@ -199,8 +217,7 @@ const Volunteers = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600" dir="ltr">{v.volunteer_type === 'group' ? v.contact_phone : v.phone}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-bold">{v.city}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{v.volunteer_type === 'group' ? v.group_size : v.age || '-'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{v.gender || '-'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap">{contactStatusBadge(v.contact_status)}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">{statusBadge(v.status)}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

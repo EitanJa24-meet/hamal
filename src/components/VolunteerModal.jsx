@@ -8,6 +8,7 @@ const VolunteerModal = ({ isOpen, onClose, volunteer, onSave }) => {
         full_name: '', phone: '', age: '', address: '', city: '', has_car: false,
         skills: [], status: 'available', gender: '', notes: '',
         volunteer_type: 'individual',
+        contact_status: 'עדין לא נוצר קשר',
         // group fields
         group_name: '', org_name: '', group_size: 2, contact_person: '', contact_phone: '',
     };
@@ -151,13 +152,22 @@ const VolunteerModal = ({ isOpen, onClose, volunteer, onSave }) => {
                         </div>
 
                         {/* Car + Status */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="flex items-center gap-2 bg-gray-50 p-3 rounded-xl border border-gray-100 mt-6">
                                 <input type="checkbox" id="has_car" checked={!!formData.has_car} onChange={e => setFormData({ ...formData, has_car: e.target.checked })} className="w-4 h-4 text-primary rounded" />
-                                <label htmlFor="has_car" className="font-semibold cursor-pointer text-sm text-gray-800">ברשותי רכב</label>
+                                <label htmlFor="has_car" className="font-semibold cursor-pointer text-sm text-gray-800">יש רכב</label>
                             </div>
                             <div>
-                                <label className={lbl}>סטטוס</label>
+                                <label className={lbl}>סטטוס קשר</label>
+                                <select value={formData.contact_status || 'עדין לא נוצר קשר'} onChange={e => setFormData({ ...formData, contact_status: e.target.value })} className={inp + ' bg-white border-blue-200'}>
+                                    <option value="עדין לא נוצר קשר">עדין לא נוצר קשר</option>
+                                    <option value="לא רלוונטי">לא רלוונטי</option>
+                                    <option value="מתנדב חוזר">מתנדב חוזר</option>
+                                    <option value="רוצה להתנדב">רוצה להתנדב</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className={lbl}>סטטוס עבודה</label>
                                 <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className={inp + ' bg-white'}>
                                     <option value="available">פנוי לשיבוץ</option>
                                     <option value="assigned">בפעילות</option>
