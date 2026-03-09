@@ -182,6 +182,15 @@ const Volunteers = () => {
         reader.readAsBinaryString(file);
     };
 
+    const updateVolunteerField = async (id, field, value) => {
+        const { error } = await supabase.from('volunteers').update({ [field]: value }).eq('id', id);
+        if (error) {
+            alert('שגיאה בעדכון: ' + error.message);
+        } else {
+            setVolunteers(prev => prev.map(v => v.id === id ? { ...v, [field]: value } : v));
+        }
+    };
+
     const statusBadge = (s) => {
         const styles = { available: "bg-emerald-50 text-emerald-700 border-emerald-100", assigned: "bg-blue-50 text-blue-700 border-blue-100", busy: "bg-red-50 text-red-700 border-red-100" };
         const labels = { available: "פנוי", assigned: "בפעילות", busy: "לא זמין" };
@@ -282,8 +291,36 @@ const Volunteers = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-bold">{v.city}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{v.volunteer_type === 'group' ? v.group_size : v.age || '-'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{v.gender || '-'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">{contactStatusBadge(v.contact_status)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">{statusBadge(v.status)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <select
+                                                value={v.contact_status || 'עדין לא נוצר קשר'}
+                                                onChange={(e) => updateVolunteerField(v.id, 'contact_status', e.target.value)}
+                                                className={`text-[10px] font-black border rounded-full px-2 py-1 outline-none appearance-none cursor-pointer transition-colors ${v.contact_status === 'לא רלוונטי' ? 'bg-red-50 text-red-600 border-red-200' :
+                                                        v.contact_status === 'מתנדב חוזר' ? 'bg-purple-50 text-purple-600 border-purple-200' :
+                                                            v.contact_status === 'רוצה להתנדב' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                                                'bg-gray-50 text-gray-500 border-gray-200'
+                                                    }`}
+                                            >
+                                                <option value="עדין לא נוצר קשר">עדין לא נוצר קשר</option>
+                                                <option value="לא רלוונטי">לא רלוונטי</option>
+                                                <option value="מתנדב חוזר">מתנדב חוזר</option>
+                                                <option value="רוצה להתנדב">רוצה להתנדב</option>
+                                            </select>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <select
+                                                value={v.status}
+                                                onChange={(e) => updateVolunteerField(v.id, 'status', e.target.value)}
+                                                className={`text-[10px] font-black border rounded-full px-2 py-1 outline-none appearance-none cursor-pointer transition-colors ${v.status === 'available' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                        v.status === 'assigned' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                            'bg-red-50 text-red-700 border-red-200'
+                                                    }`}
+                                            >
+                                                <option value="available">פנוי</option>
+                                                <option value="assigned">בפעילות</option>
+                                                <option value="busy">לא זמין</option>
+                                            </select>
+                                        </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button onClick={() => { setEditingVol(v); setIsModalOpen(true); }} className="p-1.5 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-lg transition-colors"><Edit2 size={16} /></button>

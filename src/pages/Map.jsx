@@ -29,12 +29,17 @@ const createIcon = (color, label, shadowColor = 'rgba(0,0,0,0.15)') => L.divIcon
     popupAnchor: [0, -34],
 });
 
-const taskIconFn = (urgency) => {
-    const colors = { emergency: '#ef4444', high: '#f97316', medium: '#eab308', low: '#22c55e' };
-    return createIcon(colors[urgency] || '#3b82f6', '📍', 'rgba(0,0,0,0.25)');
+const volIconFn = (v) => {
+    const contactColors = {
+        'עדין לא נוצר קשר': '#94a3b8', // Gray
+        'לא רלוונטי': '#f43f5e',      // Rose
+        'מתנדב חוזר': '#8b5cf6',       // Violet
+        'רוצה להתנדב': '#3b82f6',      // Blue
+    };
+    const color = contactColors[v.contact_status] || '#3b82f6';
+    const symbol = v.volunteer_type === 'group' ? '👥' : '👤';
+    return createIcon(color, symbol);
 };
-const volIcon = createIcon('#3b82f6', '👤');
-const groupIcon = createIcon('#f59e0b', '👥', 'rgba(245,158,11,0.2)');
 
 const MapController = ({ volunteers, tasks, setZoomLevel }) => {
     const map = useMap();
@@ -73,6 +78,7 @@ const MapView = () => {
     const [volType, setVolType] = useState('');
     const [volCar, setVolCar] = useState(false);
     const [volStatus, setVolStatus] = useState('available');
+    const [volContactStatus, setVolContactStatus] = useState('');
 
     const [taskSearch, setTaskSearch] = useState('');
     const [taskUrgency, setTaskUrgency] = useState('');
@@ -118,9 +124,10 @@ const MapView = () => {
             if (volType && v.volunteer_type !== volType) return false;
             if (volCar && !v.has_car) return false;
             if (volStatus && v.status !== volStatus) return false;
+            if (volContactStatus && v.contact_status !== volContactStatus) return false;
             return true;
         });
-    }, [volunteers, volSearch, volGender, volSkill, volType, volCar, volStatus]);
+    }, [volunteers, volSearch, volGender, volSkill, volType, volCar, volStatus, volContactStatus]);
 
     const jitter = (items, radiusBase = 0.0006) => {
         const coordsMap = {};
@@ -203,6 +210,13 @@ const MapView = () => {
                             <option value="individual">יחידים</option>
                             <option value="group">קבוצות</option>
                         </select>
+                        <select value={volContactStatus} onChange={e => setVolContactStatus(e.target.value)} className={selectStyle + " border-blue-200 bg-blue-50/30"}>
+                            <option value="">סטטוס קשר (הכל)</option>
+                            <option value="עדין לא נוצר קשר">עדין לא נוצר קשר</option>
+                            <option value="לא רלוונטי">לא רלוונטי</option>
+                            <option value="מתנדב חוזר">מתנדב חוזר</option>
+                            <option value="רוצה להתנדב">רוצה להתנדב</option>
+                        </select>
                         <label className="flex items-center justify-center gap-2 p-1.5 bg-gray-50 rounded-xl cursor-pointer border border-gray-100 border-dashed">
                             <input type="checkbox" checked={volCar} onChange={e => setVolCar(e.target.checked)} className="rounded text-primary" />
                             <span className="text-[10px] font-bold text-gray-600">רק עם רכב</span>
@@ -230,7 +244,7 @@ const MapView = () => {
                     {volunteersVisible && jitteredVols.map(v => {
                         const volTasks = assignments.filter(a => a.volunteer_id === v.id).map(a => tasks.find(t => t.id === a.task_id)).filter(Boolean);
                         return (
-                            <Marker key={v.id} position={[v.lat, v.lng]} icon={v.volunteer_type === 'group' ? groupIcon : volIcon} zIndexOffset={100}>
+                            <Marker key={v.id} position={[v.lat, v.lng]} icon={volIconFn(v)} zIndexOffset={100}>
                                 <Popup minWidth={260}>
                                     <div className="text-right p-1" dir="rtl">
                                         <div className="flex items-start gap-3 mb-3">
