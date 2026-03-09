@@ -90,7 +90,12 @@ const Volunteers = () => {
             if (filterCar === 'no' && v.has_car) return false;
             if (filterGender && v.gender !== filterGender) return false;
             if (filterType && v.volunteer_type !== filterType) return false;
-            if (filterContactStatus && v.contact_status !== filterContactStatus) return false;
+
+            if (filterContactStatus) {
+                const vStatus = v.contact_status || 'עדין לא נוצר קשר';
+                if (vStatus !== filterContactStatus) return false;
+            }
+
             return true;
         });
     }, [volunteers, search, filterCity, filterStatus, filterSkill, filterCar, filterGender, filterType, targetedId]);
@@ -296,9 +301,9 @@ const Volunteers = () => {
                                                 value={v.contact_status || 'עדין לא נוצר קשר'}
                                                 onChange={(e) => updateVolunteerField(v.id, 'contact_status', e.target.value)}
                                                 className={`text-[10px] font-black border rounded-full px-2 py-1 outline-none appearance-none cursor-pointer transition-colors ${v.contact_status === 'לא רלוונטי' ? 'bg-red-50 text-red-600 border-red-200' :
-                                                        v.contact_status === 'מתנדב חוזר' ? 'bg-purple-50 text-purple-600 border-purple-200' :
-                                                            v.contact_status === 'רוצה להתנדב' ? 'bg-blue-50 text-blue-600 border-blue-200' :
-                                                                'bg-gray-50 text-gray-500 border-gray-200'
+                                                    v.contact_status === 'מתנדב חוזר' ? 'bg-purple-50 text-purple-600 border-purple-200' :
+                                                        v.contact_status === 'רוצה להתנדב' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                                            'bg-gray-50 text-gray-500 border-gray-200'
                                                     }`}
                                             >
                                                 <option value="עדין לא נוצר קשר">עדין לא נוצר קשר</option>
@@ -312,8 +317,8 @@ const Volunteers = () => {
                                                 value={v.status}
                                                 onChange={(e) => updateVolunteerField(v.id, 'status', e.target.value)}
                                                 className={`text-[10px] font-black border rounded-full px-2 py-1 outline-none appearance-none cursor-pointer transition-colors ${v.status === 'available' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                        v.status === 'assigned' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                            'bg-red-50 text-red-700 border-red-200'
+                                                    v.status === 'assigned' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                        'bg-red-50 text-red-700 border-red-200'
                                                     }`}
                                             >
                                                 <option value="available">פנוי</option>
