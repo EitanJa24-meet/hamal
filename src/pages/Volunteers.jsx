@@ -261,6 +261,8 @@ const Volunteers = () => {
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">שם / קבוצה</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">טלפון</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">אזור</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">גיל</th>
+                                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">מגדר</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">סטטוס קשר</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">סטטוס עבודה</th>
                                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">פעולות</th>
@@ -278,6 +280,8 @@ const Volunteers = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600" dir="ltr">{v.volunteer_type === 'group' ? v.contact_phone : v.phone}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-bold">{v.city}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{v.volunteer_type === 'group' ? v.group_size : v.age || '-'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{v.gender || '-'}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">{contactStatusBadge(v.contact_status)}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">{statusBadge(v.status)}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">
