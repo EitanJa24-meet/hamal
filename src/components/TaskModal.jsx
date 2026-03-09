@@ -75,34 +75,42 @@ const TaskModal = ({ isOpen, onClose, task, onSave }) => {
                             <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                                 <FileText size={14} /> פרטי המשימה
                             </h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="col-span-2">
+                            <div className="grid grid-cols-3 gap-4">
+                                <div className="col-span-3">
                                     <label className="block text-xs font-bold text-gray-500 mb-1.5 mr-1">כותרת המשימה</label>
                                     <input required type="text" value={formData.name || ''} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="לדוגמה: עזרה בניקיון מקלט" />
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1.5 mr-1">סוג המשימה</label>
+                                <div className="col-span-1">
+                                    <label className="block text-xs font-bold text-gray-500 mb-1.5 mr-1">סוג</label>
                                     <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-primary/20">
                                         {taskTypes.map(t => <option key={t} value={t}>{t}</option>)}
                                     </select>
                                 </div>
-                                <div>
+                                <div className="col-span-1">
                                     <label className="block text-xs font-bold text-gray-500 mb-1.5 mr-1">דחיפות</label>
                                     <select value={formData.urgency} onChange={e => setFormData({ ...formData, urgency: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white outline-none focus:ring-2 focus:ring-primary/20">
-                                        <option value="low">🟡 נמוכה - כשמזדמן</option>
-                                        <option value="medium">🟠 בינונית - רגיל</option>
-                                        <option value="high">🔴 גבוהה - דחוף</option>
-                                        <option value="emergency">🚨 חירום - קפצונר</option>
+                                        <option value="low">🟡 נמוכה</option>
+                                        <option value="medium">🟠 בינונית</option>
+                                        <option value="high">🔴 גבוהה</option>
+                                        <option value="emergency">🚨 חירום</option>
                                     </select>
                                 </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
+                                <div className="col-span-1">
+                                    <label className="block text-xs font-bold text-gray-500 mb-1.5 mr-1 flex items-center gap-1.5">
+                                        מתנדבים דרושים
+                                    </label>
+                                    <input
+                                        type="number" min="1" max="200"
+                                        value={formData.volunteers_needed || 1}
+                                        onChange={e => setFormData({ ...formData, volunteers_needed: parseInt(e.target.value) || 1 })}
+                                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    />
+                                </div>
+                                <div className="col-span-1">
                                     <label className="block text-xs font-bold text-gray-500 mb-1.5 mr-1">עיר/יישוב</label>
                                     <input required type="text" value={formData.city || ''} onChange={e => setFormData({ ...formData, city: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20" />
                                 </div>
-                                <div>
+                                <div className="col-span-2">
                                     <label className="block text-xs font-bold text-gray-500 mb-1.5 mr-1">כתובת מדוייקת</label>
                                     <input required type="text" value={formData.address || ''} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="רחוב ומספר בית" />
                                 </div>

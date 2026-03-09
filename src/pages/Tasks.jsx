@@ -192,13 +192,34 @@ const Tasks = () => {
     };
 
     const getTop15Volunteers = (task) => {
+        const needed = task.volunteers_needed || 1;
         return [...allVolunteers]
             .filter(v => v.status === 'available')
             .filter(v => matchGender ? v.gender === matchGender : true)
             .sort((a, b) => {
-                const distA = task.lat ? getDistance({ latitude: parseFloat(task.lat), longitude: parseFloat(task.lng) }, { latitude: parseFloat(a.lat), longitude: parseFloat(a.lng) }) : 999999;
-                const distB = task.lat ? getDistance({ latitude: parseFloat(task.lat), longitude: parseFloat(task.lng) }, { latitude: parseFloat(b.lat), longitude: parseFloat(b.lng) }) : 999999;
-                return distA - distB;
+                const getScore = (vol) => {
+                    const dist = task.lat ? getDistance({ latitude: parseFloat(task.lat), longitude: parseFloat(task.lng) }, { latitude: parseFloat(vol.lat), longitude: parseFloat(vol.lng) }) : 999999;
+                    let score = dist;
+
+                    // Large task optimization
+                    if (needed >= 3) {
+                        // Priority for groups (capacity)
+                        if (vol.volunteer_type === 'group') {
+                            score -= 5000; // Treat as 5km closer
+                            if (vol.group_size >= 5) score -= 3000; // Even better
+                        }
+                        // Priority for mobility (car)
+                        if (vol.has_car) score -= 2000; // Treat as 2km closer
+                    }
+
+                    // Skill matching (bonus)
+                    const matchesSkills = (vol.skills || []).some(s => (task.type || '').includes(s) || s === 'עזרה כללית');
+                    if (matchesSkills) score -= 1000;
+
+                    return score;
+                };
+
+                return getScore(a) - getScore(b);
             }).slice(0, 15);
     };
 
@@ -336,12 +357,22 @@ const Tasks = () => {
                                                     <div className="flex items-center gap-1.5 text-gray-400"><Clock size={14} /> {formatTimeInfo(task)}</div>
                                                 </div>
                                             </div>
-                                            <div className="text-sm font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100/50 shadow-sm flex items-center gap-2">
-                                                <UserCheck size={16} /> {taskAssigned.reduce((acc, a) => {
-                                                    const v = allVolunteers.find(vol => vol.id === a.volunteer_id);
-                                                    const size = (v?.volunteer_type === 'group' ? v.group_size : 1) || 1;
-                                                    return acc + size;
-                                                }, 0)} מתנדבים שובצו
+                                            <div className="flex flex-col items-end gap-1 min-w-[140px]">
+                                                <div className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">גיוס מתנדבים</div>
+                                                <div className="flex items-center gap-2 w-full bg-gray-100 h-2.5 rounded-full overflow-hidden border border-gray-200/50">
+                                                    <div
+                                                        className={`h-full transition-all duration-1000 ${(taskAssigned.reduce((acc, a) => acc + (allVolunteers.find(vol => vol.id === a.volunteer_id)?.volunteer_type === 'group' ? (allVolunteers.find(vol => vol.id === a.volunteer_id)?.group_size || 1) : 1), 0) / (task.volunteers_needed || 1)) >= 1 ? 'bg-emerald-500' : 'bg-primary'
+                                                            }`}
+                                                        style={{ width: `${Math.min(100, (taskAssigned.reduce((acc, a) => acc + (allVolunteers.find(vol => vol.id === a.volunteer_id)?.volunteer_type === 'group' ? (allVolunteers.find(vol => vol.id === a.volunteer_id)?.group_size || 1) : 1), 0) / (task.volunteers_needed || 1)) * 100)}%` }}
+                                                    ></div>
+                                                </div>
+                                                <div className="text-[11px] font-black text-gray-700 mt-0.5">
+                                                    {taskAssigned.reduce((acc, a) => {
+                                                        const v = allVolunteers.find(vol => vol.id === a.volunteer_id);
+                                                        const size = (v?.volunteer_type === 'group' ? v.group_size : 1) || 1;
+                                                        return acc + size;
+                                                    }, 0)} / {task.volunteers_needed || 1} רשומים
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
