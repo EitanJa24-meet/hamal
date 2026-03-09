@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import VolunteerModal from '../components/VolunteerModal';
 import * as XLSX from 'xlsx';
 import { geocodeAddress } from '../utils/geocode';
+import { cleanVolunteerData } from '../utils/taskUtils';
 import { useSearchParams } from 'react-router-dom';
 
 const SKILLS = ['בייביסיטר', 'עזרה לקשישים', 'ניקיון', 'לוגיסטיקה', 'חלוקת אוכל', 'ניקוי רסיסים', 'עזרה כללית'];
@@ -107,23 +108,7 @@ const Volunteers = () => {
             lat = loc.lat; lng = loc.lng;
         }
 
-        const allowedFields = ['full_name', 'phone', 'age', 'address', 'city', 'lat', 'lng',
-            'has_car', 'gender', 'skills', 'notes', 'status', 'volunteer_type',
-            'group_name', 'org_name', 'group_size', 'contact_person', 'contact_phone'];
-        const clean = {};
-        allowedFields.forEach(f => {
-            if (data[f] !== undefined) {
-                // Fix: Ensure integer fields are numbers, not empty strings
-                if ((f === 'age' || f === 'group_size') && (data[f] === '' || data[f] === null)) {
-                    clean[f] = null;
-                } else if (f === 'age' || f === 'group_size') {
-                    clean[f] = parseInt(data[f]);
-                } else {
-                    clean[f] = data[f];
-                }
-            }
-        });
-        clean.lat = lat; clean.lng = lng;
+        const clean = cleanVolunteerData({ ...data, lat, lng });
 
         if (data.id) {
             const { error } = await supabase.from('volunteers').update(clean).eq('id', data.id);

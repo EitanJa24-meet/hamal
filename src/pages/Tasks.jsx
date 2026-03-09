@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { getDistance } from 'geolib';
 import TaskModal from '../components/TaskModal';
 import { geocodeAddress } from '../utils/geocode';
+import { cleanTaskData } from '../utils/taskUtils';
 import { useSearchParams } from 'react-router-dom';
 
 const URGENCY_COLORS = { low: 'bg-gray-100 text-gray-700', medium: 'bg-yellow-100 text-yellow-700', high: 'bg-orange-100 text-orange-700', emergency: 'bg-red-100 text-red-700 border border-red-200' };
@@ -209,20 +210,8 @@ const Tasks = () => {
                 lat = loc.lat; lng = loc.lng;
             } catch (e) { console.error(e); }
         }
-        const allowedFields = ['name', 'type', 'description', 'address', 'city', 'lat', 'lng', 'urgency', 'volunteers_needed', 'status', 'requester_name', 'requester_phone', 'time_type', 'due_date', 'start_date', 'end_date', 'notes'];
-        const clean = {};
-        allowedFields.forEach(f => {
-            if (data[f] !== undefined) {
-                if (f === 'volunteers_needed' && (data[f] === '' || data[f] === null)) {
-                    clean[f] = 1;
-                } else if (f === 'volunteers_needed') {
-                    clean[f] = parseInt(data[f]);
-                } else {
-                    clean[f] = data[f];
-                }
-            }
-        });
-        clean.lat = lat; clean.lng = lng;
+
+        const clean = cleanTaskData({ ...data, lat, lng });
 
         if (data.id) {
             const { error } = await supabase.from('tasks').update(clean).eq('id', data.id);

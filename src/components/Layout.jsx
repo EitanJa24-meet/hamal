@@ -4,6 +4,7 @@ import { LayoutDashboard, Map, Users, ClipboardList, AlertTriangle, Shield } fro
 import TaskModal from './TaskModal';
 import { supabase } from '../supabaseClient';
 import { geocodeAddress } from '../utils/geocode';
+import { cleanTaskData } from '../utils/taskUtils';
 
 const Layout = () => {
     const location = useLocation();
@@ -11,7 +12,8 @@ const Layout = () => {
 
     const handleEmergencySave = async (data) => {
         const loc = await geocodeAddress(data.address, data.city);
-        const { error } = await supabase.from('tasks').insert([{ ...data, lat: loc.lat, lng: loc.lng, status: 'open' }]);
+        const clean = cleanTaskData({ ...data, lat: loc.lat, lng: loc.lng, status: 'open' });
+        const { error } = await supabase.from('tasks').insert([clean]);
         setIsEmergencyOpen(false);
         if (!error) alert("אירוע חירום נפתח בהצלחה והוזן במפה!");
         else alert("שגיאה בפתיחת אירוע חירום: " + error.message);
