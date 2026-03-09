@@ -28,7 +28,7 @@ const Volunteers = () => {
     const [filterCar, setFilterCar] = useState('');
     const [filterGender, setFilterGender] = useState('');
     const [filterType, setFilterType] = useState('');
-    const [filterContactStatus, setFilterContactStatus] = useState('');
+    const [filterContactStatus, setFilterContactStatus] = useState([]);
 
     const loadData = async () => {
         setIsLoading(true);
@@ -91,19 +91,19 @@ const Volunteers = () => {
             if (filterGender && v.gender !== filterGender) return false;
             if (filterType && v.volunteer_type !== filterType) return false;
 
-            if (filterContactStatus) {
+            if (filterContactStatus.length > 0) {
                 const vStatus = v.contact_status || 'עדין לא נוצר קשר';
-                if (vStatus !== filterContactStatus) return false;
+                if (!filterContactStatus.includes(vStatus)) return false;
             }
 
             return true;
         });
     }, [volunteers, search, filterCity, filterStatus, filterSkill, filterCar, filterGender, filterType, targetedId]);
 
-    const hasActiveFilters = search || filterCity || filterStatus || filterSkill || filterCar || filterGender || filterType || targetedId;
+    const hasActiveFilters = search || filterCity || filterStatus || filterSkill || filterCar || filterGender || filterType || targetedId || filterContactStatus.length > 0;
     const clearFilters = () => {
         setSearch(''); setFilterCity(''); setFilterStatus(''); setFilterSkill('');
-        setFilterCar(''); setFilterGender(''); setFilterType(''); setFilterContactStatus('');
+        setFilterCar(''); setFilterGender(''); setFilterType(''); setFilterContactStatus([]);
         setSearchParams({});
     };
 
@@ -257,13 +257,23 @@ const Volunteers = () => {
                     <option value="individual">יחיד</option>
                     <option value="group">קבוצה</option>
                 </select>
-                <select value={filterContactStatus} onChange={e => setFilterContactStatus(e.target.value)} className="px-3 py-2 border border-blue-200 rounded-xl text-sm outline-none bg-blue-50/30 text-blue-700 font-bold">
-                    <option value="">כל הסטטוסים (קשר)</option>
-                    <option value="עדין לא נוצר קשר">עדין לא נוצר קשר</option>
-                    <option value="לא רלוונטי">לא רלוונטי</option>
-                    <option value="מתנדב חוזר">מתנדב חוזר</option>
-                    <option value="רוצה להתנדב">רוצה להתנדב</option>
-                </select>
+                <div className="flex flex-wrap items-center gap-2 border-r border-gray-100 pr-3 mr-3">
+                    <span className="text-[10px] font-black text-gray-400 uppercase ml-2">סינון קשר:</span>
+                    {[
+                        { v: 'עדין לא נוצר קשר', c: 'bg-gray-100 text-gray-600', a: 'bg-gray-500 text-white' },
+                        { v: 'לא רלוונטי', c: 'bg-red-50 text-red-600', a: 'bg-red-500 text-white' },
+                        { v: 'מתנדב חוזר', c: 'bg-purple-50 text-purple-600', a: 'bg-purple-500 text-white' },
+                        { v: 'רוצה להתנדב', c: 'bg-blue-50 text-blue-600', a: 'bg-blue-500 text-white' }
+                    ].map(st => (
+                        <button
+                            key={st.v}
+                            onClick={() => setFilterContactStatus(prev => prev.includes(st.v) ? prev.filter(x => x !== st.v) : [...prev, st.v])}
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${filterContactStatus.includes(st.v) ? st.a + ' border-transparent shadow-sm scale-105' : st.c + ' border-transparent hover:border-gray-200'}`}
+                        >
+                            {st.v}
+                        </button>
+                    ))}
+                </div>
                 {hasActiveFilters && (<button onClick={clearFilters} className="text-gray-400 hover:text-red-500 text-xs flex items-center gap-1 font-medium transition-colors"> <X size={14} /> נקה </button>)}
             </div>
 
