@@ -82,43 +82,77 @@ const Tasks = () => {
     const [filterUrgency, setFilterUrgency] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [filterCity, setFilterCity] = useState('');
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const PAGE_SIZE = 50;
+    const [assignedVolDetails, setAssignedVolDetails] = useState({});
 
-    const fetchTable = async (table) => {
-        let all = [];
-        let from = 0;
-        let finished = false;
-        while (!finished) {
-            const { data, error } = await supabase.from(table).select('*').range(from, from + 999);
-            if (error || !data || data.length === 0) finished = true;
-            else {
-                all = [...all, ...data];
-                if (data.length < 1000) finished = true;
-                else from += 1000;
-            }
-        }
-        return all;
-    };
-
-    const loadData = async () => {
+    const loadData = async (reset = false) => {
         setIsLoading(true);
+        const start = reset ? 0 : page * PAGE_SIZE;
+        const end = start + PAGE_SIZE - 1;
+
         try {
-            const [t, v, a] = await Promise.all([
-                fetchTable('tasks').catch(err => { alert('שגיאה בטעינת משימות: ' + err.message); return []; }),
-                fetchTable('volunteers').catch(() => []),
-                fetchTable('assignments').catch(() => [])
-            ]);
-            console.log(`Loaded ${t.length} tasks, ${v.length} volunteers`);
-            setTasks(t || []);
-            setAllVolunteers(v || []);
-            setAssignments(a || []);
+            // Main tasks query with server-side filtering
+            let taskQuery = supabase.from('tasks').select('*', { count: 'exact' });
+
+            if (showArchived) taskQuery = taskQuery.eq('is_archived', true);
+            else taskQuery = taskQuery.eq('is_archived', false);
+
+            if (search) taskQuery = taskQuery.ilike('name', `%${search}%`);
+            if (filterUrgency) taskQuery = taskQuery.eq('urgency', filterUrgency);
+            if (filterCity) taskQuery = taskQuery.eq('city', filterCity);
+
+            if (filterStatus) {
+                const s = filterStatus.toLowerCase();
+                if (s === 'open') taskQuery = taskQuery.in('status', ['open', 'פתוחה']);
+                else if (s === 'completed') taskQuery = taskQuery.in('status', ['completed', 'הושלמה']);
+                else if (s === 'assigning') taskQuery = taskQuery.in('status', ['assigning', 'בשיבוץ']);
+                else taskQuery = taskQuery.eq('status', s);
+            }
+
+            const { data: t, error: tErr } = await taskQuery
+                .order(showArchived ? 'archived_at' : 'created_at', { ascending: false })
+                .range(start, end);
+
+            if (tErr) throw tErr;
+
+            // Fetch assignments for these tasks
+            const taskIds = (t || []).map(task => task.id);
+            let a = [];
+            if (taskIds.length > 0) {
+                const { data: assignData } = await supabase.from('assignments').select('*').in('task_id', taskIds);
+                a = assignData || [];
+            }
+
+            if (reset) {
+                setTasks(t || []);
+                setAssignments(a);
+                setPage(1);
+            } else {
+                setTasks(prev => [...prev, ...(t || [])]);
+                setAssignments(prev => [...prev, ...a]);
+                setPage(prev => prev + 1);
+            }
+            setHasMore((t || []).length === PAGE_SIZE);
+
+            // Fetch details for assigned volunteers specifically
+            const volIds = [...new Set(a.map(assign => assign.volunteer_id))];
+            if (volIds.length > 0) {
+                const { data: vData } = await supabase.from('volunteers').select('id, full_name, group_name, phone, contact_phone, volunteer_type, group_size').in('id', volIds);
+                const detailsMap = {};
+                (vData || []).forEach(v => { detailsMap[v.id] = v; });
+                setAssignedVolDetails(prev => ({ ...prev, ...detailsMap }));
+            }
+
         } catch (e) {
             console.error("Error loading data:", e);
-            alert("שגיאה בחיבור לבסיס הנתונים. אנא רענני את הדף.");
+            alert("שגיאה בחיבור לבסיס הנתונים");
         }
         setIsLoading(false);
     };
 
-    useEffect(() => { loadData(); }, []);
+    useEffect(() => { loadData(true); }, [showArchived, search, filterUrgency, filterStatus, filterCity]);
     useEffect(() => { if (targetedId) setExpandedTaskId(targetedId); }, [targetedId]);
 
     const cities = useMemo(() => {
@@ -127,38 +161,8 @@ const Tasks = () => {
     }, [tasks]);
 
     const filtered = useMemo(() => {
-        const result = (tasks || []).filter(t => {
-            // Match archived status
-            const taskArchived = !!t.is_archived;
-            if (taskArchived !== !!showArchived) return false;
-
-            // Search by name
-            if (search && !t.name?.toLowerCase().includes(search.toLowerCase())) return false;
-
-            // Urgency
-            if (filterUrgency && t.urgency !== filterUrgency) return false;
-
-            // Status (Case insensitive and handles both 'open' and 'פתוחה')
-            if (filterStatus) {
-                const s = t.status?.toLowerCase() || '';
-                const f = filterStatus.toLowerCase();
-                if (f === 'open') {
-                    if (s !== 'open' && s !== 'פתוחה') return false;
-                } else if (f === 'completed') {
-                    if (s !== 'completed' && s !== 'הושלמה') return false;
-                } else if (f === 'assigning') {
-                    if (s !== 'assigning' && s !== 'בשיבוץ') return false;
-                } else if (s !== f) return false;
-            }
-
-            // City
-            if (filterCity && t.city !== filterCity) return false;
-
-            return true;
-        });
-        console.log(`Filtered: ${result.length}/${tasks.length} tasks visible`);
-        return result;
-    }, [tasks, search, filterUrgency, filterStatus, filterCity, showArchived]);
+        return tasks; // Filtering now happens on the server
+    }, [tasks]);
 
     const handleAssign = async (volunteer, task) => {
         const { data, error } = await supabase.from('assignments').insert({ task_id: task.id, volunteer_id: volunteer.id, status: 'assigned' }).select();
@@ -191,28 +195,52 @@ const Tasks = () => {
         if (!error) setAssignments(assignments.filter(a => a.id !== id));
     };
 
+    const [relevantVolunteers, setRelevantVolunteers] = useState({});
+
+    useEffect(() => {
+        if (expandedTaskId) {
+            const task = tasks.find(t => t.id === expandedTaskId);
+            if (task && !relevantVolunteers[expandedTaskId]) {
+                fetchRelevantVolunteers(task);
+            }
+        }
+    }, [expandedTaskId]);
+
+    const fetchRelevantVolunteers = async (task) => {
+        const { data, error } = await supabase.from('volunteers')
+            .select('*')
+            .eq('status', 'available')
+            .limit(100);
+
+        if (!error && data) {
+            const assignedIds = assignments.filter(a => a.task_id === task.id).map(a => a.volunteer_id);
+            let extra = [];
+            if (assignedIds.length > 0) {
+                const { data: extraVol } = await supabase.from('volunteers').select('*').in('id', assignedIds);
+                extra = extraVol || [];
+            }
+            setRelevantVolunteers(prev => ({ ...prev, [task.id]: [...data, ...extra] }));
+        }
+    };
+
     const getTop15Volunteers = (task) => {
+        const volPool = relevantVolunteers[task.id] || [];
         const needed = task.volunteers_needed || 1;
-        return [...allVolunteers]
-            .filter(v => v.status === 'available')
+        return [...volPool]
             .filter(v => matchGender ? v.gender === matchGender : true)
             .sort((a, b) => {
                 const getScore = (vol) => {
                     const dist = task.lat ? getDistance({ latitude: parseFloat(task.lat), longitude: parseFloat(task.lng) }, { latitude: parseFloat(vol.lat), longitude: parseFloat(vol.lng) }) : 999999;
                     let score = dist;
 
-                    // Large task optimization
                     if (needed >= 3) {
-                        // Priority for groups (capacity)
                         if (vol.volunteer_type === 'group') {
-                            score -= 5000; // Treat as 5km closer
-                            if (vol.group_size >= 5) score -= 3000; // Even better
+                            score -= 5000;
+                            if (vol.group_size >= 5) score -= 3000;
                         }
-                        // Priority for mobility (car)
-                        if (vol.has_car) score -= 2000; // Treat as 2km closer
+                        if (vol.has_car) score -= 2000;
                     }
 
-                    // Skill matching (bonus)
                     const matchesSkills = (vol.skills || []).some(s => (task.type || '').includes(s) || s === 'עזרה כללית');
                     if (matchesSkills) score -= 1000;
 
@@ -361,14 +389,14 @@ const Tasks = () => {
                                                 <div className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">גיוס מתנדבים</div>
                                                 <div className="flex items-center gap-2 w-full bg-gray-100 h-2.5 rounded-full overflow-hidden border border-gray-200/50">
                                                     <div
-                                                        className={`h-full transition-all duration-1000 ${(taskAssigned.reduce((acc, a) => acc + (allVolunteers.find(vol => vol.id === a.volunteer_id)?.volunteer_type === 'group' ? (allVolunteers.find(vol => vol.id === a.volunteer_id)?.group_size || 1) : 1), 0) / (task.volunteers_needed || 1)) >= 1 ? 'bg-emerald-500' : 'bg-primary'
+                                                        className={`h-full transition-all duration-1000 ${(taskAssigned.reduce((acc, a) => acc + (assignedVolDetails[a.volunteer_id]?.volunteer_type === 'group' ? (assignedVolDetails[a.volunteer_id]?.group_size || 1) : 1), 0) / (task.volunteers_needed || 1)) >= 1 ? 'bg-emerald-500' : 'bg-primary'
                                                             }`}
-                                                        style={{ width: `${Math.min(100, (taskAssigned.reduce((acc, a) => acc + (allVolunteers.find(vol => vol.id === a.volunteer_id)?.volunteer_type === 'group' ? (allVolunteers.find(vol => vol.id === a.volunteer_id)?.group_size || 1) : 1), 0) / (task.volunteers_needed || 1)) * 100)}%` }}
+                                                        style={{ width: `${Math.min(100, (taskAssigned.reduce((acc, a) => acc + (assignedVolDetails[a.volunteer_id]?.volunteer_type === 'group' ? (assignedVolDetails[a.volunteer_id]?.group_size || 1) : 1), 0) / (task.volunteers_needed || 1)) * 100)}%` }}
                                                     ></div>
                                                 </div>
                                                 <div className="text-[11px] font-black text-gray-700 mt-0.5">
                                                     {taskAssigned.reduce((acc, a) => {
-                                                        const v = allVolunteers.find(vol => vol.id === a.volunteer_id);
+                                                        const v = assignedVolDetails[a.volunteer_id];
                                                         const size = (v?.volunteer_type === 'group' ? v.group_size : 1) || 1;
                                                         return acc + size;
                                                     }, 0)} / {task.volunteers_needed || 1} רשומים
@@ -429,7 +457,7 @@ const Tasks = () => {
                                                         <div className="space-y-2.5">
                                                             {taskAssigned.length === 0 ? <div className="text-xs text-gray-400 italic bg-white p-4 rounded-2xl border border-gray-100 border-dashed text-center">טרם שובצו מתנדבים למשימה זו.</div> :
                                                                 taskAssigned.map(a => {
-                                                                    const vol = allVolunteers.find(v => v.id === a.volunteer_id);
+                                                                    const vol = (relevantVolunteers[task.id] || []).find(v => v.id === a.volunteer_id);
                                                                     return (
                                                                         <div key={a.id} className="bg-white p-3.5 rounded-2xl border border-gray-100 flex items-center justify-between shadow-sm hover:shadow-md transition-all group ring-primary-50">
                                                                             <div className="flex items-center gap-3">
@@ -454,7 +482,7 @@ const Tasks = () => {
                                                         </div>
                                                         {volSearch.length >= 2 && (
                                                             <div className="mt-2 bg-white border border-gray-100 rounded-2xl shadow-2xl overflow-hidden divide-y divide-gray-50 absolute z-50 w-full max-w-sm ring-1 ring-black/5 animate-in fade-in zoom-in-95">
-                                                                {allVolunteers.filter(v => (v.full_name || v.group_name || '').toLowerCase().includes(volSearch.toLowerCase())).slice(0, 5).map(v => (
+                                                                {(relevantVolunteers[task.id] || []).filter(v => (v.full_name || v.group_name || '').toLowerCase().includes(volSearch.toLowerCase())).slice(0, 5).map(v => (
                                                                     <button key={v.id} onClick={() => { handleAssign(v, task); setVolSearch(''); }} className="w-full text-right p-4 hover:bg-gray-50 flex items-center justify-between group transition-colors">
                                                                         <div>
                                                                             <span className="text-xs font-black text-gray-700 block">{v.volunteer_type === 'group' ? v.group_name : v.full_name}</span>
@@ -478,6 +506,11 @@ const Tasks = () => {
                                 </div>
                             );
                         })}
+                {hasMore && !isLoading && (
+                    <div className="flex justify-center pt-4">
+                        <button onClick={() => loadData(false)} className="px-8 py-3 bg-white border border-gray-200 text-primary font-black rounded-2xl hover:bg-gray-50 transition-all shadow-sm">טען משימות נוספות...</button>
+                    </div>
+                )}
             </div>
             <TaskModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} task={editingTask} onSave={handleSave} />
         </div>

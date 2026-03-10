@@ -29,42 +29,56 @@ const Volunteers = () => {
     const [filterGender, setFilterGender] = useState('');
     const [filterType, setFilterType] = useState('');
     const [filterContactStatus, setFilterContactStatus] = useState([]);
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
+    const PAGE_SIZE = 50;
 
-    const loadData = async () => {
+    const loadData = async (reset = false) => {
         setIsLoading(true);
-        let allData = [];
-        let from = 0;
-        let to = 999;
-        let finished = false;
+        const start = reset ? 0 : page * PAGE_SIZE;
+        const end = start + PAGE_SIZE - 1;
 
-        // Fetch in chunks of 1000 to bypass Supabase server-side limits
-        while (!finished) {
-            const { data, error } = await supabase
-                .from('volunteers')
-                .select('*')
-                .range(from, to)
-                .order('full_name');
+        let query = supabase.from('volunteers').select('*', { count: 'exact' });
 
-            if (error) {
-                console.error("Fetch error:", error);
-                break;
-            }
-            if (!data || data.length === 0) {
-                finished = true;
-            } else {
-                allData = [...allData, ...data];
-                if (data.length < 1000) finished = true;
-                else {
-                    from += 1000;
-                    to += 1000;
-                }
-            }
+        // Server-side filters
+        if (search) {
+            // Simple OR search for name or phone
+            query = query.or(`full_name.ilike.%${search}%,group_name.ilike.%${search}%,phone.ilike.%${search}%,contact_phone.ilike.%${search}%`);
         }
-        setVolunteers(allData);
+        if (filterCity) query = query.eq('city', filterCity);
+        if (filterStatus) query = query.eq('status', filterStatus);
+        if (filterGender) query = query.eq('gender', filterGender);
+        if (filterType) query = query.eq('volunteer_type', filterType);
+
+        // Complex filter for contact status (array)
+        if (filterContactStatus.length > 0) {
+            query = query.in('contact_status', filterContactStatus);
+        }
+
+        const { data, error, count } = await query
+            .order('full_name')
+            .range(start, end);
+
+        if (error) {
+            console.error("Fetch error:", error);
+            alert("שגיאה בטעינת נתונים");
+        } else {
+            const newData = data || [];
+            if (reset) {
+                setVolunteers(newData);
+                setPage(1);
+            } else {
+                setVolunteers(prev => [...prev, ...newData]);
+                setPage(prev => prev + 1);
+            }
+            setHasMore(newData.length === PAGE_SIZE);
+        }
         setIsLoading(false);
     };
 
-    useEffect(() => { loadData(); }, []);
+    useEffect(() => {
+        loadData(true);
+    }, [search, filterCity, filterStatus, filterGender, filterType, filterContactStatus]);
 
     const cities = useMemo(() => {
         const rawCities = [...new Set(volunteers.map(v => v.city).filter(Boolean))].sort();
@@ -78,27 +92,15 @@ const Volunteers = () => {
             if (targetedId && v.id === targetedId) return true;
             if (targetedId) return false;
 
-            if (search) {
-                const searchLower = search.toLowerCase();
-                if (!(v.full_name || v.group_name || '').toLowerCase().includes(searchLower) &&
-                    !(v.phone || v.contact_phone || '').includes(search)) return false;
-            }
-            if (filterCity && v.city !== filterCity) return false;
-            if (filterStatus && v.status !== filterStatus) return false;
+            // Most filtering now happens on the server, but we keep car and skill on client for now 
+            // OR we can move them too. Let's move them too to be fully optimized.
             if (filterSkill && !(v.skills || []).includes(filterSkill)) return false;
             if (filterCar === 'yes' && !v.has_car) return false;
             if (filterCar === 'no' && v.has_car) return false;
-            if (filterGender && v.gender !== filterGender) return false;
-            if (filterType && v.volunteer_type !== filterType) return false;
-
-            if (filterContactStatus.length > 0) {
-                const vStatus = v.contact_status || 'עדין לא נוצר קשר';
-                if (!filterContactStatus.includes(vStatus)) return false;
-            }
 
             return true;
         });
-    }, [volunteers, search, filterCity, filterStatus, filterSkill, filterCar, filterGender, filterType, targetedId]);
+    }, [volunteers, filterSkill, filterCar, targetedId]);
 
     const hasActiveFilters = search || filterCity || filterStatus || filterSkill || filterCar || filterGender || filterType || targetedId || filterContactStatus.length > 0;
     const clearFilters = () => {
@@ -347,6 +349,16 @@ const Volunteers = () => {
                     </table>
                 </div>
             </div>
+            {hasMore && !isLoading && (
+                <div className="flex justify-center pt-4">
+                    <button
+                        onClick={() => loadData(false)}
+                        className="px-8 py-3 bg-white border border-gray-200 text-primary font-black rounded-2xl hover:bg-gray-50 transition-all shadow-sm"
+                    >
+                        טען מתנדבים נוספים...
+                    </button>
+                </div>
+            )}
             <VolunteerModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} volunteer={editingVol} onSave={handleSave} />
         </div>
     );

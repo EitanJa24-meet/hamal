@@ -43,25 +43,25 @@ const Dashboard = () => {
                 emergencies_active: actE.count || 0
             });
 
-            const { data: allTasks } = await supabase.from('tasks').select('type, city');
-            if (allTasks) {
+            // For charts, only fetch recent or limited tasks to prevent heavy load
+            const { data: recentTasks } = await supabase.from('tasks').select('type, city').order('created_at', { ascending: false }).limit(2000);
+            if (recentTasks) {
                 const typeCounts = {};
                 const cityCounts = {};
                 const CHART_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
-                allTasks.forEach(t => {
-                    typeCounts[t.type] = (typeCounts[t.type] || 0) + 1;
-                    if (t.city) {
-                        cityCounts[t.city] = (cityCounts[t.city] || 0) + 1;
-                    }
+                recentTasks.forEach(t => {
+                    if (t.type) typeCounts[t.type] = (typeCounts[t.type] || 0) + 1;
+                    if (t.city) cityCounts[t.city] = (cityCounts[t.city] || 0) + 1;
                 });
+
                 setCharts({
                     byType: Object.keys(typeCounts).map((type, idx) => ({
-                        name: type || 'אחר',
+                        name: type,
                         value: typeCounts[type],
                         color: CHART_COLORS[idx % CHART_COLORS.length]
                     })),
-                    byCity: Object.keys(cityCounts).map(city => ({ city: city || 'לא ידוע', count: cityCounts[city] }))
+                    byCity: Object.keys(cityCounts).map(city => ({ city, count: cityCounts[city] }))
                         .sort((a, b) => b.count - a.count)
                         .slice(0, 10)
                 });
