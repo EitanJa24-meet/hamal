@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Users, Phone, MapPin, Car, Download, Upload, Plus, Trash2, Edit2, Search, Filter, X, User, Loader2 } from 'lucide-react';
+import { Users, Phone, MapPin, Car, Download, Upload, Plus, Trash2, Edit2, Search, Filter, X, User, Loader2, Map as MapIcon } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import VolunteerModal from '../components/VolunteerModal';
 import * as XLSX from 'xlsx';
 import { geocodeAddress } from '../utils/geocode';
 import { cleanVolunteerData } from '../utils/taskUtils';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 const SKILLS = ['בייביסיטר', 'עזרה לקשישים', 'ניקיון', 'לוגיסטיקה', 'חלוקת אוכל', 'ניקוי רסיסים', 'עזרה כללית'];
 const PRIORITY_CITIES = ['תל אביב', 'ירושלים', 'חיפה', 'באר שבע', 'אשדוד', 'אשקלון', 'שדרות'];
 
 const Volunteers = () => {
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const targetedId = searchParams.get('id');
 
@@ -340,6 +341,12 @@ const Volunteers = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={() => navigate(`/map?volunteerId=${v.id}`)}
+                                                    className="p-1.5 hover:bg-blue-50 text-gray-400 hover:text-primary rounded-lg transition-colors"
+                                                >
+                                                    <MapIcon size={16} />
+                                                </button>
                                                 <button onClick={() => { setEditingVol(v); setIsModalOpen(true); }} className="p-1.5 hover:bg-blue-50 text-gray-400 hover:text-blue-600 rounded-lg transition-colors"><Edit2 size={16} /></button>
                                             </div>
                                         </td>

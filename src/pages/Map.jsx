@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../supabaseClient';
 import { Filter, Car, Phone, MapPin, Users, Hammer, AlertCircle, ExternalLink, Search, User, Briefcase, Star, Info, CheckCircle2, History } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const PRIORITY_CITIES = ['תל אביב', 'ירושלים', 'חיפה', 'באר שבע', 'שדרות', 'אשקלון'];
 const SKILLS = ['בייביסיטר', 'עזרה לקשישים', 'ניקיון', 'לוגיסטיקה', 'חלוקת אוכל', 'ניקוי רסיסים', 'עזרה כללית', 'הסעות'];
@@ -51,16 +51,20 @@ const taskIconFn = (urgency) => {
     return createIcon(color, label);
 };
 
-const MapController = ({ volunteers, tasks, setZoomLevel }) => {
+const MapController = ({ volunteers, tasks, setZoomLevel, focusPoint }) => {
     const map = useMap();
     useMapEvents({ zoomend: () => setZoomLevel(map.getZoom()) });
     useEffect(() => {
+        if (focusPoint && focusPoint.lat && focusPoint.lng) {
+            map.setView([focusPoint.lat, focusPoint.lng], 14, { animate: true });
+            return;
+        }
         const points = [
             ...tasks.filter(t => t.lat && t.lng).map(t => [t.lat, t.lng]),
             ...volunteers.filter(v => v.lat && v.lng).map(v => [v.lat, v.lng]),
         ];
         if (points.length > 0) map.fitBounds(points, { padding: [50, 50], maxZoom: 13 });
-    }, [tasks, volunteers, map]);
+    }, [tasks, volunteers, map, focusPoint]);
     return null;
 };
 
@@ -72,6 +76,7 @@ const IOSSwitch = ({ checked, onChange, color = "bg-primary" }) => (
 
 const MapView = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [volunteers, setVolunteers] = useState([]);
     const [tasks, setTasks] = useState([]);
     const [assignments, setAssignments] = useState([]);
@@ -177,6 +182,26 @@ const MapView = () => {
     const jitteredTasks = useMemo(() => jitter(filteredTasks, 0.0008), [filteredTasks]);
     const jitteredVols = useMemo(() => jitter(filteredVols, 0.0006), [filteredVols]);
 
+    const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+    const focusTaskId = searchParams.get('taskId');
+    const focusVolunteerId = searchParams.get('volunteerId');
+
+    const focusPoint = useMemo(() => {
+        if (focusTaskId) {
+            const t = tasks.find(x => String(x.id) === String(focusTaskId));
+            if (t && typeof t.lat === 'number' && typeof t.lng === 'number') {
+                return { lat: t.lat, lng: t.lng };
+            }
+        }
+        if (focusVolunteerId) {
+            const v = volunteers.find(x => String(x.id) === String(focusVolunteerId));
+            if (v && typeof v.lat === 'number' && typeof v.lng === 'number') {
+                return { lat: v.lat, lng: v.lng };
+            }
+        }
+        return null;
+    }, [focusTaskId, focusVolunteerId, tasks, volunteers]);
+
     const volunteersVisible = zoomLevel >= 11 && showVols;
 
     const selectStyle = "w-full border border-gray-100 rounded-xl py-2 px-3 text-[11px] bg-gray-50 outline-none focus:ring-1 focus:ring-primary/20 transition-all shadow-sm";
@@ -269,7 +294,7 @@ const MapView = () => {
             <div className="flex-1 rounded-3xl overflow-hidden shadow-2xl border-4 border-white relative z-0 min-h-[400px]" style={{ minHeight: 400 }}>
                 <MapContainer center={[31.5, 34.8]} zoom={8} style={{ height: '100%', minHeight: 400, width: '100%' }} scrollWheelZoom={true}>
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
-                    <MapController volunteers={filteredVols} tasks={filteredTasks} setZoomLevel={setZoomLevel} />
+                    <MapController volunteers={filteredVols} tasks={filteredTasks} setZoomLevel={setZoomLevel} focusPoint={focusPoint} />
 
                     {volunteersVisible && jitteredVols.map(v => {
                         const volTasks = assignments.filter(a => a.volunteer_id === v.id).map(a => tasks.find(t => t.id === a.task_id)).filter(Boolean);
