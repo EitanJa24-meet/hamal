@@ -41,6 +41,16 @@ const volIconFn = (v) => {
     return createIcon(color, symbol);
 };
 
+const taskIconFn = (urgency) => {
+    const config = {
+        emergency: { color: '#ef4444', label: '🔴' },
+        high: { color: '#f97316', label: '🟠' },
+        medium: { color: '#eab308', label: '🟡' },
+    };
+    const { color, label } = config[urgency] || config.medium;
+    return createIcon(color, label);
+};
+
 const MapController = ({ volunteers, tasks, setZoomLevel }) => {
     const map = useMap();
     useMapEvents({ zoomend: () => setZoomLevel(map.getZoom()) });
@@ -101,10 +111,28 @@ const MapView = () => {
     };
 
     useEffect(() => {
-        fetchAll('volunteers').then(setVolunteers);
-        fetchAll('tasks').then(data => setTasks(data.filter(t => !t.is_archived && t.lat && t.lng)));
-        fetchAll('assignments').then(setAssignments);
+        // Fetch only basic fields for markers
+        supabase.from('volunteers').select('id, full_name, group_name, phone, contact_phone, lat, lng, city, address, volunteer_type, group_size, gender, age, status, contact_status, skills, has_car')
+            .not('lat', 'is', null)
+            .then(({ data }) => setVolunteers(Array.isArray(data) ? data : []));
+
+        supabase.from('tasks').select('id, name, lat, lng, urgency, status, type, address, city, is_archived')
+            .eq('is_archived', false)
+            .not('lat', 'is', null)
+            .then(({ data }) => setTasks(Array.isArray(data) ? data : []));
     }, []);
+
+    const [selectedVolHistory, setSelectedVolHistory] = useState(null);
+    const fetchVolHistory = async (volId) => {
+        const { data } = await supabase.from('assignments').select('task_id').eq('volunteer_id', volId);
+        if (data && data.length > 0) {
+            const taskIds = data.map(a => a.task_id);
+            const { data: tData } = await supabase.from('tasks').select('id, name, city').in('id', taskIds);
+            setSelectedVolHistory(tData || []);
+        } else {
+            setSelectedVolHistory([]);
+        }
+    };
 
     const filteredTasks = useMemo(() => {
         return tasks.filter(t => {
@@ -131,7 +159,9 @@ const MapView = () => {
 
     const jitter = (items, radiusBase = 0.0006) => {
         const coordsMap = {};
-        return items.map(item => {
+        return items
+            .filter(item => item && typeof item.lat === 'number' && typeof item.lng === 'number')
+            .map(item => {
             const key = `${item.lat.toFixed(4)},${item.lng.toFixed(4)}`;
             const count = coordsMap[key] || 0;
             coordsMap[key] = count + 1;
@@ -236,8 +266,8 @@ const MapView = () => {
                 </div>
             </div>
 
-            <div className="flex-1 rounded-3xl overflow-hidden shadow-2xl border-4 border-white relative z-0">
-                <MapContainer center={[31.5, 34.8]} zoom={8} style={{ height: '100%', width: '100%' }}>
+            <div className="flex-1 rounded-3xl overflow-hidden shadow-2xl border-4 border-white relative z-0 min-h-[400px]" style={{ minHeight: 400 }}>
+                <MapContainer center={[31.5, 34.8]} zoom={8} style={{ height: '100%', minHeight: 400, width: '100%' }} scrollWheelZoom={true}>
                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
                     <MapController volunteers={filteredVols} tasks={filteredTasks} setZoomLevel={setZoomLevel} />
 
@@ -261,13 +291,21 @@ const MapView = () => {
                                             <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100"><MapPin size={14} className="text-blue-500" /> <span className="font-medium truncate">{v.city} · {v.address || 'לא צוין'}</span></div>
                                         </div>
 
-                                        {volTasks.length > 0 && (
-                                            <div className="mb-4 bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
-                                                <h4 className="text-[10px] font-black text-emerald-700 uppercase mb-2 flex items-center gap-1"><History size={12} /> היסטוריית התנדבויות ({volTasks.length})</h4>
-                                                <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1 custom-scrollbar">
-                                                    {volTasks.map(t => (
+                                        <button
+                                            onClick={() => fetchVolHistory(v.id)}
+                                            className="text-[10px] font-black text-primary mb-2 flex items-center gap-1 hover:underline"
+                                        >
+                                            <History size={12} /> הצג היסטוריית התנדבות...
+                                        </button>
+
+                                        {selectedVolHistory && (
+                                            <div className="mb-4 bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 animate-in slide-in-from-top-1">
+                                                <h4 className="text-[10px] font-black text-emerald-700 uppercase mb-2">היסטוריה ({selectedVolHistory.length})</h4>
+                                                <div className="space-y-1.5 max-h-24 overflow-y-auto pr-1">
+                                                    {selectedVolHistory.map(t => (
                                                         <div key={t.id} className="text-[11px] font-bold text-emerald-800 flex items-center gap-1.5"><CheckCircle2 size={10} /> {t.name} <span className="text-[9px] font-normal opacity-60">({t.city})</span></div>
                                                     ))}
+                                                    {selectedVolHistory.length === 0 && <div className="text-[9px] text-gray-400 italic">אין היסטוריה קודמת</div>}
                                                 </div>
                                             </div>
                                         )}
