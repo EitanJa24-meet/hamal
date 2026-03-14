@@ -396,9 +396,8 @@ const Tasks = () => {
                             <div className="font-black">לא נמצאו משימות העונות על הסינון</div>
                             <div className="text-xs mt-1">נסי לשנות את החיפוש או לנקות מסננים</div>
                         </div>
-                    ) : (
-                        <>
-                        {filtered.map((task) => {
+                    ) :
+                        filtered.map((task) => {
                             const isExpanded = expandedTaskId === task.id;
                             const taskAssigned = assignments.filter(a => a.task_id === task.id);
                             return (
@@ -593,8 +592,6 @@ const Tasks = () => {
                                 </div>
                             );
                         })}
-                        </>
-                    )}
                 {hasMore && !isLoading && (
                     <div className="flex justify-center pt-4">
                         <button onClick={() => loadData(false)} className="px-8 py-3 bg-white border border-gray-200 text-primary font-black rounded-2xl hover:bg-gray-50 transition-all shadow-sm">טען משימות נוספות...</button>
