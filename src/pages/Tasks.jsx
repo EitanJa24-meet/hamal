@@ -498,6 +498,7 @@ const Tasks = () => {
                                                                     רק עם רכב
                                                                 </label>
                                                             </div>
+                                                        </div>
                                                     </div>
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                                                         {getTop15Volunteers(task).map(v => (<MatchCard key={v.id} volunteer={v} task={task} onAssign={handleAssign} onWhatsApp={handleWhatsApp} />))}
