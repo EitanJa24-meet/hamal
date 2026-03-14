@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
+import Match from './pages/Match';
 import Tasks from './pages/Tasks';
 import Volunteers from './pages/Volunteers';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -14,6 +15,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
+          <Route path="match" element={<Match />} />
           <Route path="tasks" element={<Tasks />} />
           <Route path="volunteers" element={<Volunteers />} />
           <Route path="map" element={

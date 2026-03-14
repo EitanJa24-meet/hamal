@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Map, Users, ClipboardList, AlertTriangle, Shield } from 'lucide-react';
+import { LayoutDashboard, Map, Users, ClipboardList, AlertTriangle, Zap } from 'lucide-react';
 import TaskModal from './TaskModal';
 import { supabase } from '../supabaseClient';
 import { geocodeAddress } from '../utils/geocode';
@@ -21,6 +21,7 @@ const Layout = () => {
 
     const navItems = [
         { path: '/', icon: LayoutDashboard, label: 'דאשבורד' },
+        { path: '/match', icon: Zap, label: 'התאמת מתנדבים' },
         { path: '/map', icon: Map, label: 'מפה' },
         { path: '/volunteers', icon: Users, label: 'מתנדבים' },
         { path: '/tasks', icon: ClipboardList, label: 'משימות' },
@@ -28,40 +29,39 @@ const Layout = () => {
 
     return (
         <div className="flex h-screen w-full bg-surface overflow-hidden">
-            {/* Right Sidebar */}
-            <aside className="w-64 bg-white shadow-xl flex flex-col z-20 shrink-0 border-l border-gray-100">
-                <div className="bg-white p-6 flex flex-col items-center justify-center relative overflow-hidden border-b border-gray-50">
-                    <div className="flex flex-col items-center gap-2 z-10 w-full justify-center">
-                        <img src="/logo.png" alt="Logo" className="h-20 w-auto object-contain" />
-                        <div className="text-center">
-                            <h1 className="text-lg font-bold tracking-tight text-primary">לב אחד</h1>
-                            <p className="text-xs text-gray-400 font-bold">חמ"ל דרך פרת</p>
+            <aside className="group w-16 hover:w-64 bg-white shadow-xl flex flex-col z-20 shrink-0 border-l border-gray-100 transition-all duration-200 overflow-hidden">
+                <div className="bg-white p-4 group-hover:p-6 flex flex-col items-center justify-center border-b border-gray-50 min-w-[256px]">
+                    <div className="flex flex-col items-center gap-2 w-full">
+                        <img src="/logo.png" alt="Logo" className="h-12 group-hover:h-20 w-auto object-contain transition-all duration-200" />
+                        <div className="text-center max-w-0 group-hover:max-w-[140px] overflow-hidden transition-all duration-200">
+                            <h1 className="text-lg font-bold tracking-tight text-primary whitespace-nowrap">לב אחד</h1>
+                            <p className="text-xs text-gray-400 font-bold whitespace-nowrap">חמ"ל דרך פרת</p>
                         </div>
                     </div>
                 </div>
 
-                <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-2">
+                <nav className="flex-1 overflow-y-auto py-6 px-3 group-hover:px-4 space-y-2 min-w-[256px]">
                     {navItems.map((item) => {
                         const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
                         return (
                             <Link
                                 key={item.path}
                                 to={item.path}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
-                                    ? 'bg-primary text-white shadow-md shadow-primary/20 scale-[1.02]'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-primary hover:scale-[1.01]'
+                                className={`flex items-center gap-3 px-3 group-hover:px-4 py-3 rounded-xl transition-all duration-200 ${isActive
+                                    ? 'bg-primary text-white shadow-md shadow-primary/20'
+                                    : 'text-gray-600 hover:bg-gray-50 hover:text-primary'
                                     }`}
                             >
-                                <item.icon size={20} className={isActive ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'} />
-                                <span className="font-semibold">{item.label}</span>
+                                <item.icon size={20} className="shrink-0" />
+                                <span className="font-semibold max-w-0 group-hover:max-w-[140px] overflow-hidden transition-all duration-200 whitespace-nowrap">{item.label}</span>
                             </Link>
                         );
                     })}
 
                     <div className="pt-4 mt-4 border-t border-gray-100">
-                        <button onClick={() => setIsEmergencyOpen(true)} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-alert hover:bg-red-50 hover:scale-[1.01] group">
-                            <AlertTriangle size={20} className="opacity-80 group-hover:opacity-100" />
-                            <span className="font-semibold">חירום מהיר</span>
+                        <button onClick={() => setIsEmergencyOpen(true)} className="w-full flex items-center gap-3 px-3 group-hover:px-4 py-3 rounded-xl transition-all duration-200 text-alert hover:bg-red-50">
+                            <AlertTriangle size={20} className="shrink-0" />
+                            <span className="font-semibold max-w-0 group-hover:max-w-[100px] overflow-hidden transition-all duration-200 whitespace-nowrap">חירום מהיר</span>
                         </button>
                     </div>
                 </nav>
